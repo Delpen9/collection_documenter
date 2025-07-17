@@ -3,6 +3,17 @@ import io
 import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
+from authentication import login, show_streamlit_ui, hide_streamlit_ui
+
+st.set_page_config(layout="centered")
+st.markdown("""
+  <style>
+    /* hide header & footer */
+    #MainMenu, header, footer { visibility: hidden; }
+    /* full-viewport white background */
+    .appview-container { background: #fafafa; padding: 4rem; }
+  </style>
+""", unsafe_allow_html=True)
 
 @st.cache_resource
 def load_model():
@@ -273,6 +284,10 @@ def render_Item(
     return front_image, back_image
 
 def run_collection():
+    hide_streamlit_ui() # converts to white background
+    login()
+    show_streamlit_ui() # converts to black background
+
     setup_page()
 
     if "tags" not in st.session_state:
