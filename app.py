@@ -41,7 +41,6 @@ def save_state(user_email):
     blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
     blob.upload_blob(json.dumps(state), overwrite=True)
 
-
 def load_state(user_email):
     if LOCAL_MODE:
         return
@@ -53,7 +52,6 @@ def load_state(user_email):
             st.session_state[k] = v
     except Exception:
         pass
-
 
 def save_image(user_email, item_id, label, image_data):
     """
