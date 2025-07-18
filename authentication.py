@@ -109,7 +109,11 @@ def get_current_url():
 def login():
     client = get_oauth_client()
 
-    # 1) exchange code exactly once
+    # If we already have a user in state, just return their email immediately
+    if "user" in st.session_state:
+        return st.session_state.user["email"]
+
+    # 1) Exchange code for token once
     if "token" not in st.session_state and "code" in st.query_params:
         callback_url = get_current_url()
         st.session_state.token = client.fetch_token(
@@ -118,11 +122,9 @@ def login():
             client_secret=CLIENT_SECRET,
             redirect_uri=REDIRECT_URI,
         )
+        st.query_params.clear()  # clean up URL
 
-        # clear the code/state from the URL (new API only!)
-        st.query_params.clear()  
-
-        # now verify and store your user
+        # Verify identity token and enforce allowed list
         id_info = google_id_token.verify_oauth2_token(
             st.session_state.token["id_token"],
             grequests.Request(),
@@ -132,17 +134,17 @@ def login():
         if email not in ALLOWED_EMAILS:
             st.error("Unauthorized")
             st.stop()
-        st.session_state.user = {"email": email, "name": id_info["name"]}
-        return
+        st.session_state.user = {"email": email, "name": id_info.get("name")}
+        # Now that we’ve stored them, return it
+        return email
 
-    # 2) if not logged in yet, show the button
-    if "user" not in st.session_state:
-        auth_url, state = client.create_authorization_url(
-            "https://accounts.google.com/o/oauth2/v2/auth",
-            redirect_uri=REDIRECT_URI,
-            access_type="offline",
-            prompt="consent",
-        )
-        st.session_state.oauth_state = state
-        google_button(auth_url)
-        st.stop()
+    # 2) Not logged in yet? Show the button and halt
+    auth_url, state = client.create_authorization_url(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        redirect_uri=REDIRECT_URI,
+        access_type="offline",
+        prompt="consent",
+    )
+    st.session_state.oauth_state = state
+    google_button(auth_url)
+    st.stop()

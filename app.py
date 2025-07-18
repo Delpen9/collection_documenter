@@ -275,10 +275,14 @@ def render_Item(
 
 def run_collection():
     hide_streamlit_ui() # converts to white background
-    login()
+    user_email = login()
     show_streamlit_ui() # converts to black background
 
     setup_page()
+
+    st.subheader(f"Welcome {user_email} !!!")
+
+    st.write("---")
 
     if "tags" not in st.session_state:
         st.session_state.tags = []
