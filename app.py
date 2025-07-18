@@ -163,8 +163,19 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
             for col, label in zip((c1, c2), ("front", "back")):
                 with col:
                     st.markdown(f"**Upload {label.title()} Image**")
-                    upload = st.file_uploader("", type=["png","jpg","jpeg"], key=f"upload_{label}_{cid}")
-                    camera = st.camera_input(f"Snap {label.title()} Photo", key=f"camera_{label}_{cid}")
+                    tabs = st.tabs(["Upload", "Camera"])
+                    with tabs[0]:
+                        upload = st.file_uploader(
+                            "",
+                            type=["png","jpg","jpeg"],
+                            key=f"upload_{label}_{cid}"
+                        )
+
+                    with tabs[1]:
+                        camera = st.camera_input(
+                            f"Snap {label.title()} Photo",
+                            key=f"camera_{label}_{cid}"
+                        )
                     img = upload or camera
 
                     if img:
