@@ -5,16 +5,6 @@ import librosa
 from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
 
-st.set_page_config(layout="centered")
-st.markdown("""
-  <style>
-    /* hide header & footer */
-    #MainMenu, header, footer { visibility: hidden; }
-    /* full-viewport white background */
-    .appview-container { background: #fafafa; padding: 4rem; }
-  </style>
-""", unsafe_allow_html=True)
-
 @st.cache_resource
 def load_model():
     import whisper

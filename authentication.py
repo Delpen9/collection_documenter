@@ -96,41 +96,46 @@ def google_button(auth_url):
     </div>
     """, unsafe_allow_html=True)
 
+def get_current_url():
+    base_url = "http://localhost:8502"  # Replace with your actual Streamlit app URL in production
+    query_params = st.query_params
+
+    if not query_params:
+        return base_url
+
+    query_string = "&".join(f"{k}={v}" for k, v in query_params.items())
+    return f"{base_url}?{query_string}"
+
 def login():
     client = get_oauth_client()
 
-    # 1) handle callback
-    def get_current_url():
-        base_url = "http://localhost:8501"  # Replace with your actual Streamlit app URL in production
-        query_params = st.query_params
-
-        if not query_params:
-            return base_url
-
-        query_string = "&".join(f"{k}={v}" for k, v in query_params.items())
-        return f"{base_url}?{query_string}"
-
-    if "code" in st.query_params:
-        token = client.fetch_token(
+    # 1) exchange code exactly once
+    if "token" not in st.session_state and "code" in st.query_params:
+        callback_url = get_current_url()
+        st.session_state.token = client.fetch_token(
             "https://oauth2.googleapis.com/token",
-            authorization_response=get_current_url(),
-            # no client_secret here
+            authorization_response=callback_url,
+            client_secret=CLIENT_SECRET,
+            redirect_uri=REDIRECT_URI,
         )
-        # verify & decode the JWT
+
+        # clear the code/state from the URL (new API only!)
+        st.query_params.clear()  
+
+        # now verify and store your user
         id_info = google_id_token.verify_oauth2_token(
-            token["id_token"], 
-            grequests.Request(), 
-            CLIENT_ID
+            st.session_state.token["id_token"],
+            grequests.Request(),
+            CLIENT_ID,
         )
         email = id_info["email"]
         if email not in ALLOWED_EMAILS:
             st.error("Unauthorized")
             st.stop()
-
         st.session_state.user = {"email": email, "name": id_info["name"]}
         return
 
-    # 2) show the pretty button if not logged in
+    # 2) if not logged in yet, show the button
     if "user" not in st.session_state:
         auth_url, state = client.create_authorization_url(
             "https://accounts.google.com/o/oauth2/v2/auth",
@@ -139,7 +144,5 @@ def login():
             prompt="consent",
         )
         st.session_state.oauth_state = state
-
         google_button(auth_url)
-
         st.stop()
