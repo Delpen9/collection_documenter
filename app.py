@@ -1,103 +1,106 @@
-import streamlit as st
+import os
 import io
+import json
+import time
+import streamlit as st
 import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
+
+# Optional Azure imports only when not in local mode
+def import_blob_libs():
+    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+    return BlobServiceClient, generate_blob_sas, BlobSasPermissions
+
+# --- Configuration ---
+LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
+BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
+STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
+IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
+PERSIST_KEYS = {"main_tags_list", "main_tags_input", "main_tags_select", "Items"}
+
+# Initialize blob client if needed
+if not LOCAL_MODE:
+    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
+    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
+else:
+    blob_service = None
 
 @st.cache_resource
 def load_model():
     import whisper
     return whisper.load_model("base")
 
+# --- Persistence Helpers ---
+
+def save_state(user_email):
+    if LOCAL_MODE:
+        return
+    state = {k: st.session_state[k] for k in PERSIST_KEYS if k in st.session_state}
+    blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
+    blob.upload_blob(json.dumps(state), overwrite=True)
+
+
+def load_state(user_email):
+    if LOCAL_MODE:
+        return
+    try:
+        blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
+        raw = blob.download_blob().readall()
+        saved = json.loads(raw)
+        for k, v in saved.items():
+            st.session_state[k] = v
+    except Exception:
+        pass
+
+
+def save_image(user_email, item_id, label, image_data):
+    """
+    Uploads the image to blob storage and returns a signed URL. In local mode, returns the raw image.
+    """
+    if LOCAL_MODE or blob_service is None:
+        return image_data
+
+    img_bytes = image_data.read() if hasattr(image_data, 'read') else image_data
+    filename = f"{item_id}_{label}.png"
+    blob_cli = blob_service.get_blob_client(container=IMAGE_CONTAINER, blob=f"{user_email}/{filename}")
+    blob_cli.upload_blob(img_bytes, overwrite=True)
+
+    sas = generate_blob_sas(
+        account_name=blob_service.account_name,
+        container_name=IMAGE_CONTAINER,
+        blob_name=f"{user_email}/{filename}",
+        account_key=blob_service.credential.account_key,
+        permission=BlobSasPermissions(read=True),
+        expiry=int(time.time()) + 3600,
+    )
+    return f"{blob_cli.url}?{sas}"
+
+# --- UI Setup ---
 def setup_page():
-    # Page config
     st.set_page_config(
-        page_title="Collectible Documenter", 
-        layout="wide", 
+        page_title="Collectible Documenter",
+        layout="wide",
         initial_sidebar_state="expanded"
     )
-
-    # Base CSS (hide menu/footer, base Item styling)
-    st.markdown(
-        """
+    hide_streamlit_ui()
+    show_streamlit_ui()
+    st.markdown("""
         <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            .stApp {padding: 2rem;}
-
-            .banner-container {
-                padding: 1rem 2rem;
-                border-radius: 0.5rem;
-                margin-bottom: 1.5rem;
-                text-align: center;
-                font-family: 'Segoe UI', sans-serif;
-                border: 1px solid;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-                transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-            }
-
-            .Item-container {
-                background: #f9f9f9;
-                border-radius: 1rem;
-                padding: 1.5rem;
-                margin-bottom: 1.5rem;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                transition: background 0.3s, color 0.3s, box-shadow 0.3s;
-            }
+            #MainMenu {visibility: hidden;} footer {visibility: hidden;} .stApp {padding: 2rem;}
+            .banner-container { padding: 1rem 2rem; border-radius: 0.5rem; margin-bottom:1.5rem; text-align:center;
+                font-family:'Segoe UI',sans-serif;border:1px solid;box-shadow:0 2px 8px rgba(0,0,0,0.05);
+                transition:background-color .3s,color .3s,border-color .3s; }
+            .Item-container { background:#f9f9f9;border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem;
+                box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:background .3s,color .3s,box-shadow .3s; }
         </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Banner (media-query fallback for Auto mode)
-    st.markdown(
-        """
-        <style>
-        @media (prefers-color-scheme: light) {
-            .banner-container {
-                background-color: #f5f5f5;
-                color: #333;
-                border-color: #e0e0e0;
-            }
-        }
-        @media (prefers-color-scheme: dark) {
-            .banner-container {
-                background-color: #1e1e1e;
-                color: #f5f5f5;
-                border-color: #444;
-                box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
-            }
-        }
-        </style>
-
         <div class="banner-container">
-            <h1 style="margin: 0; font-size: 2.2rem;">Collectible Documenter</h1>
+            <h1 style="margin:0;font-size:2.2rem;">Collectible Documenter</h1>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
 
-    st.markdown(
-        """
-        <style>
-        .banner-container {
-            background-color: #f5f5f5 !important;
-            color: #333 !important;
-            border-color: #e0e0e0 !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
-        }
-        .Item-container {
-            background: #f9f9f9 !important;
-            color: #000 !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
+# --- Tag Widget ---
 def tag_filter_widget(label, list_key, input_key, select_key):
     if list_key not in st.session_state:
         st.session_state[list_key] = []
@@ -106,10 +109,8 @@ def tag_filter_widget(label, list_key, input_key, select_key):
 
     def add_tag():
         new = st.session_state[input_key].strip()
-
         if new and new not in st.session_state[list_key]:
             st.session_state[list_key].append(new)
-
         st.session_state[input_key] = ""
 
     def remove_tag(tag):
@@ -127,213 +128,124 @@ def tag_filter_widget(label, list_key, input_key, select_key):
         key=select_key
     )
 
+# --- Item Handlers ---
 def add_Item(idx: int):
     next_id = max(st.session_state.Items, default=-1) + 1
-    st.session_state.Items.insert(idx + 1, next_id)
+    st.session_state.Items.insert(idx+1, next_id)
 
-@st.dialog("Confirm delete", width="small")   # "large" is ~750 px
+@st.dialog("Confirm delete", width="small")
 def confirm_delete(idx, cid):
     st.write(f"Delete item **#{cid}**?")
     yes, no = st.columns(2)
     with yes:
         if st.button("Yes, delete"):
-            # remove card
             st.session_state.Items.pop(idx)
-            # optional: clean up any related keys
             for k in list(st.session_state.keys()):
                 if k.endswith(f"_{cid}"):
                     st.session_state.pop(k)
-            st.rerun()          # closes the dialog + refreshes page
+            st.rerun()
     with no:
         if st.button("Cancel"):
-            st.rerun()          # just close the dialog
-    
-# Item renderer
-def render_Item(
-    idx: int,
-    Item_id: int,
-    allow_delete: bool,
-    model: any = None,
-    tag_options: list[str] = [], 
-    selected_filters: list[str] = []
-):
-    tag_selection_key = f"tag_selection_{Item_id}"
+            st.rerun()
 
-    # initialize tag selection
-    if tag_selection_key not in st.session_state:
-        st.session_state[tag_selection_key] = []
+# --- Render Item ---
+def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
+    # Initialize default name before widget
+    name_key = f"Item_name_{cid}"
+    if name_key not in st.session_state:
+        st.session_state[name_key] = "Default Item Name"
 
-    has_overlap = False
-    if selected_filters:
-        session_tags = st.session_state[tag_selection_key]
-        has_overlap = bool(set(selected_filters) & set(session_tags))
+    st.text_input("", st.session_state[name_key], key=name_key)
 
-    overlap_condition = (has_overlap or not selected_filters)
     with st.container():
-        # Provide a default name
-        default_name = f"Default Item Name"
-
-        # Allow user to edit the name
-        Item_name = st.text_input(f"", value=default_name, key=f"Item_name_{idx}", disabled=not overlap_condition)
-
-        with st.expander("Details", expanded=overlap_condition):
-            c1, c2, c3 = st.columns([1,1,1], gap="small")
-
-            # Image Uploaders + Camera Capture
-            for col, label in zip((c1, c2), ("Front", "Back")):
+        with st.expander("Details", expanded=True):
+            c1, c2, c3 = st.columns([1,1,1])
+            for col, label in zip((c1, c2), ("front", "back")):
                 with col:
-                    st.markdown(f"**Upload {label} Image**")
-                    tabs = st.tabs(["Upload", "Camera"])
-                    with tabs[0]:
-                        upload = st.file_uploader(
-                            "", type=["png","jpg","jpeg"],
-                            key=f"upload_{label.lower()}_{Item_id}",
-                            disabled=not overlap_condition
-                        )
-                    with tabs[1]:
-                        camera = st.camera_input(
-                            f"Snap {label} Photo",
-                            key=f"camera_{label.lower()}_{Item_id}",
-                            disabled=not overlap_condition
-                        )
+                    st.markdown(f"**Upload {label.title()} Image**")
+                    upload = st.file_uploader("", type=["png","jpg","jpeg"], key=f"upload_{label}_{cid}")
+                    camera = st.camera_input(f"Snap {label.title()} Photo", key=f"camera_{label}_{cid}")
+                    img = upload or camera
 
-                    image = upload or camera
-                    if image:
-                        st.image(image, caption=label, use_container_width=True)
+                    if img:
+                        url = save_image(st.session_state.user["email"], cid, label, img)
+                        st.session_state[f"{label}_{cid}"] = url
 
-                    # capture for return
-                    if label == "Front":
-                        front_image = image
-                        st.session_state[f"front_{Item_id}"] = image
-                    else:
-                        back_image = image
-                        st.session_state[f"back_{Item_id}"] = image
+                    if st.session_state.get(f"{label}_{cid}"):
+                        st.image(st.session_state[f"{label}_{cid}"], caption=label.title())
 
-            # Audio recorder & transcription
             with c3:
-                st.markdown("**Record & Transcribe**")
+                audio_data = audiorecorder(key=f"audio_{cid}")
+                if audio_data:
+                    st.audio(audio_data.export().read(), format="audio/wav")
 
-                if overlap_condition:
-                    audio_data = audiorecorder(
-                        start_prompt="",
-                        stop_prompt="",
-                        pause_prompt="",
-                        show_visualizer=True,
-                        key=f"audio_{Item_id}",
-                    )
+                if st.button("📝 Transcribe", key=f"trans_{cid}"):
+                    buf = io.BytesIO(audio_data.export().read())
+                    data, sr = sf.read(buf)
 
-                    if audio_data:
-                        st.audio(audio_data.export().read(), format="audio/wav", disabled=not overlap_condition)
+                    if data.ndim > 1:
+                        data = data.mean(axis=1)
 
-                if st.button("📝 Transcribe", key=f"trans_{Item_id}", disabled=not overlap_condition):
-                    if audio_data and len(audio_data) > 0:
-                        buf = io.BytesIO(audio_data.export().read())
+                    if sr != 16000:
+                        data = librosa.resample(data, orig_sr=sr, target_sr=16000)
 
-                        data, sr = sf.read(buf)
+                    text = model.transcribe(data.astype("float32"), fp16=False)["text"]
+                    st.session_state[f"transcript_{cid}"] = text
 
-                        if data.ndim > 1:
-                            data = data.mean(axis=1)
+                # Use unique key for text_area to avoid duplicates
+                st.text_area(
+                    "Transcription",
+                    value=st.session_state.get(f"transcript_{cid}", ""),
+                    height=150,
+                    key=f"note_{cid}"
+                )
 
-                        audio = data.astype("float32")
+            # Initialize tag state and render widget
+            tag_key = f"tag_selection_{cid}"
+            if tag_key not in st.session_state:
+                st.session_state[tag_key] = []
 
-                        if sr != 16000:
-                            audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
-
-                        result = model.transcribe(audio, fp16=False)
-
-                        st.session_state[f"transcript_{Item_id}"] = result["text"]
-                    else:
-                        st.warning("No audio recorded!")
-
-                transcript = st.session_state.get(f"transcript_{Item_id}", "")
-                note = st.text_area("Transcription", transcript, height=150, key=f"note_{Item_id}", disabled=not overlap_condition)
-
-            st.write("---")
-
-            selected_tags = st.multiselect(
+            st.multiselect(
                 "Add Tags",
                 options=tag_options,
-                default=[],
-                key=tag_selection_key,
-                disabled=not overlap_condition
+                default=st.session_state[tag_key],
+                key=tag_key
             )
 
-            for tag in selected_tags:
-                if st.button(tag, key=f"{tag_selection_key}_del_{tag}"):
-                    pass
-        
-        # Can only add items when filters are not present
-        if not selected_filters:
-            if st.button("➕ Add Item Below", key=f"add_{Item_id}"):
-                add_Item(idx)
+        if not selected_filters and st.button("➕ Add Item Below", key=f"add_{cid}"):
+            add_Item(idx)
 
-        if allow_delete:
-            if st.button("🗑️ Delete Item", key=f"del_{Item_id}"):
-                confirm_delete(idx, Item_id)   # ← opens modal
+        if allow_delete and st.button("🗑️ Delete Item", key=f"del_{cid}"):
+            confirm_delete(idx, cid)
 
-    return front_image, back_image
-
+# --- Main ---
 def run_collection():
-    hide_streamlit_ui() # converts to white background
     user_email = login()
-    show_streamlit_ui() # converts to black background
+    st.subheader(f"Welcome {user_email}!")
+    load_state(user_email)
 
     setup_page()
-
-    st.subheader(f"Welcome {user_email} !!!")
-
     st.write("---")
 
-    if "tags" not in st.session_state:
-        st.session_state.tags = []
-
-    all_options, selected_tags = tag_filter_widget(
-        "Add tag", 
-        list_key="main_tags_list", 
-        input_key="main_tags_input", 
-        select_key="main_tags_select"
+    all_tags, sel_tags = tag_filter_widget(
+        "Add tag",
+        "main_tags_list",
+        "main_tags_input",
+        "main_tags_select"
     )
+    st.session_state["main_tags_list"] = all_tags
 
-    all_options = list(all_options)
-
-    # Initialise Items state
     if "Items" not in st.session_state:
         st.session_state.Items = [0]
 
     model = load_model()
+    allow_del = len(st.session_state.Items) > 1
 
-    allow_delete = len(st.session_state.Items) > 1
-
-    # Render items
     for i, cid in enumerate(st.session_state.Items):
         st.markdown("---")
+        render_Item(i, cid, allow_del, model, all_tags, sel_tags)
 
-        front_image = st.session_state.get(f"front_{cid}")
-        back_image  = st.session_state.get(f"back_{cid}")
-
-        if front_image or back_image:
-            c1, c2 = st.columns([4, 1], gap="small")
-            with c1:
-                render_Item(
-                    i, cid,
-                    allow_delete=allow_delete,
-                    model=model,
-                    tag_options=all_options, selected_filters=selected_tags
-                )
-
-            with c2:
-                if front_image:
-                    st.image(front_image, caption="Front", use_container_width=True)
-
-                if back_image:
-                    st.image(back_image,  caption="Back",  use_container_width=True)
-        else:
-            render_Item(
-                i, cid,
-                allow_delete=allow_delete,
-                model=model,
-                tag_options=all_options, selected_filters=selected_tags
-            )
+    save_state(user_email)
 
 if __name__ == "__main__":
     run_collection()
