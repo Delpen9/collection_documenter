@@ -55,7 +55,7 @@ def setup_page():
     """, unsafe_allow_html=True)
 
 # --- Tag Widget ---
-def tag_filter_widget(label, list_key, select_key):
+def tag_filter_widget(label, list_key):
     def pills(tags, selected):
         html = "<div class='tag-pills'>" + "".join(
             f"<span style=\"background:{'#1a73e8' if t in selected else '#e8f0fe'};"
@@ -83,8 +83,7 @@ def tag_filter_widget(label, list_key, select_key):
     selected = st.multiselect(
         "Filter by tags",
         options=st.session_state[list_key],
-        default=st.session_state.get(select_key, st.session_state[list_key]),
-        key=select_key,
+        default=[],
     )
     return st.session_state[list_key], selected
 
@@ -101,7 +100,6 @@ def run_collection():
     all_tags, sel_tags = tag_filter_widget(
         "Add tag",
         "main_tags_list",
-        "main_tags_select"
     )
     st.session_state["main_tags_list"] = all_tags
 

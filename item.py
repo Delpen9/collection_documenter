@@ -10,6 +10,29 @@ from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
 from datetime import datetime, timedelta
 
+# Optional Azure imports only when not in local mode
+def import_blob_libs():
+    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+    return BlobServiceClient, generate_blob_sas, BlobSasPermissions
+
+# --- Configuration ---
+LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
+BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
+STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
+IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
+ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
+PERSIST_KEYS = {"main_tags_list", "main_tags_select", "Items", "_image_paths"}
+
+# Initialize blob client if needed
+if not LOCAL_MODE:
+    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
+    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
+else:
+    blob_service = None
+
+# --- Persistence Helpers ---
+from persistence import *
+
 # --- Item Handlers ---
 def add_Item(idx: int):
     next_id = max(st.session_state.Items, default=-1) + 1
