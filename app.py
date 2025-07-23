@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import json
 import time
 import streamlit as st
@@ -7,6 +8,8 @@ import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
+from datetime import datetime, timedelta
+from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 
 # Optional Azure imports only when not in local mode
 def import_blob_libs():
@@ -18,6 +21,7 @@ LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
 BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
+ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
 PERSIST_KEYS = {"main_tags_list", "main_tags_input", "main_tags_select", "Items"}
 
 # Initialize blob client if needed
@@ -54,24 +58,22 @@ def load_state(user_email):
         pass
 
 def save_image(user_email, item_id, label, image_data):
-    """
-    Uploads the image to blob storage and returns a signed URL. In local mode, returns the raw image.
-    """
     if LOCAL_MODE or blob_service is None:
         return image_data
 
-    img_bytes = image_data.read() if hasattr(image_data, 'read') else image_data
+    img_bytes = image_data.read() if hasattr(image_data, "read") else image_data
     filename = f"{item_id}_{label}.png"
-    blob_cli = blob_service.get_blob_client(container=IMAGE_CONTAINER, blob=f"{user_email}/{filename}")
+    blob_path = f"{user_email}/{filename}"
+    blob_cli = blob_service.get_blob_client(container=IMAGE_CONTAINER, blob=blob_path)
     blob_cli.upload_blob(img_bytes, overwrite=True)
 
     sas = generate_blob_sas(
         account_name=blob_service.account_name,
         container_name=IMAGE_CONTAINER,
-        blob_name=f"{user_email}/{filename}",
-        account_key=blob_service.credential.account_key,
+        blob_name=blob_path,
+        account_key=ACCOUNT_KEY,
         permission=BlobSasPermissions(read=True),
-        expiry=int(time.time()) + 3600,
+        expiry=datetime.utcnow() + timedelta(hours=1)
     )
     return f"{blob_cli.url}?{sas}"
 
