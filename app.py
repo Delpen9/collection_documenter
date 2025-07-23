@@ -45,13 +45,17 @@ def setup_page():
     """, unsafe_allow_html=True)
 
 # --- Tag Widget ---
-def tag_filter_widget(label, list_key, input_key, select_key):
+def tag_filter_widget(label, list_key, select_key):
     if list_key not in st.session_state:
         st.session_state[list_key] = []
 
-    tag = st.text_input(label, key=input_key, placeholder="Type & press Enter")
+    tag = st.text_input(label, placeholder="Type & press Enter")
 
-    st.session_state[list_key].append(tag)
+    if tag != "" and tag not in st.session_state[list_key]:
+        st.session_state[list_key].append(tag)
+
+    st.info(f"Available tags: {st.session_state[list_key]}")
+
 
     selected = st.multiselect(
         "Filter by tags",
@@ -74,7 +78,6 @@ def run_collection():
     all_tags, sel_tags = tag_filter_widget(
         "Add tag",
         "main_tags_list",
-        "main_tags_input",
         "main_tags_select"
     )
     st.session_state["main_tags_list"] = all_tags
