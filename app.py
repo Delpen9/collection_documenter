@@ -9,7 +9,6 @@ import librosa
 from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
 from datetime import datetime, timedelta
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 
 # Optional Azure imports only when not in local mode
 def import_blob_libs():
