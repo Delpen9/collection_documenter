@@ -10,71 +10,13 @@ from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
 from datetime import datetime, timedelta
 
-# Optional Azure imports only when not in local mode
-def import_blob_libs():
-    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
-    return BlobServiceClient, generate_blob_sas, BlobSasPermissions
-
-# --- Configuration ---
-LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
-BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
-STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
-IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
-ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
-PERSIST_KEYS = {"main_tags_list", "main_tags_input", "main_tags_select", "Items"}
-
-# Initialize blob client if needed
-if not LOCAL_MODE:
-    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
-    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
-else:
-    blob_service = None
+# --- Persistence Helpers ---
+from persistence import *
 
 @st.cache_resource
 def load_model():
     import whisper
     return whisper.load_model("base")
-
-# --- Persistence Helpers ---
-
-def save_state(user_email):
-    if LOCAL_MODE:
-        return
-    state = {k: st.session_state[k] for k in PERSIST_KEYS if k in st.session_state}
-    blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
-    blob.upload_blob(json.dumps(state), overwrite=True)
-
-def load_state(user_email):
-    if LOCAL_MODE:
-        return
-    try:
-        blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
-        raw = blob.download_blob().readall()
-        saved = json.loads(raw)
-        for k, v in saved.items():
-            st.session_state[k] = v
-    except Exception:
-        pass
-
-def save_image(user_email, item_id, label, image_data):
-    if LOCAL_MODE or blob_service is None:
-        return image_data
-
-    img_bytes = image_data.read() if hasattr(image_data, "read") else image_data
-    filename = f"{item_id}_{label}.png"
-    blob_path = f"{user_email}/{filename}"
-    blob_cli = blob_service.get_blob_client(container=IMAGE_CONTAINER, blob=blob_path)
-    blob_cli.upload_blob(img_bytes, overwrite=True)
-
-    sas = generate_blob_sas(
-        account_name=blob_service.account_name,
-        container_name=IMAGE_CONTAINER,
-        blob_name=blob_path,
-        account_key=ACCOUNT_KEY,
-        permission=BlobSasPermissions(read=True),
-        expiry=datetime.utcnow() + timedelta(hours=1)
-    )
-    return f"{blob_cli.url}?{sas}"
 
 # --- UI Setup ---
 def setup_page():
@@ -101,31 +43,29 @@ def setup_page():
 
 # --- Tag Widget ---
 def tag_filter_widget(label, list_key, input_key, select_key):
-    if list_key not in st.session_state:
-        st.session_state[list_key] = []
-    if input_key not in st.session_state:
+    tags = st.session_state.setdefault(list_key, [])
+
+    def _add():
+        v = st.session_state[input_key].strip()
+        if v and v not in tags:
+            tags.append(v)
         st.session_state[input_key] = ""
 
-    def add_tag():
-        new = st.session_state[input_key].strip()
-        if new and new not in st.session_state[list_key]:
-            st.session_state[list_key].append(new)
-        st.session_state[input_key] = ""
+    st.text_input(label, key=input_key, on_change=_add, placeholder="Type & press Enter")
 
-    def remove_tag(tag):
-        st.session_state[list_key].remove(tag)
+    cols = st.columns(len(tags)) if tags else []
+    for i, t in enumerate(tags):
+        if cols[i].button(f"❌ {t}", key=f"{list_key}_del_{i}"):
+            tags.pop(i)
+            st.rerun()
 
-    st.text_input(label, key=input_key, on_change=add_tag)
-    for t in st.session_state[list_key]:
-        if st.button(f"❌ {t}", key=f"{list_key}_del_{t}", on_click=remove_tag, args=(t,)):
-            pass
-
-    return st.session_state[list_key], st.multiselect(
+    selected = st.multiselect(
         "Filter by tags",
-        options=st.session_state[list_key],
-        default=st.session_state[list_key],
-        key=select_key
+        options=tags,
+        default=st.session_state.get(select_key, tags),
+        key=select_key,
     )
+    return tags, selected
 
 # --- Item Handlers ---
 def add_Item(idx: int):
@@ -138,6 +78,7 @@ def confirm_delete(idx, cid):
     yes, no = st.columns(2)
     with yes:
         if st.button("Yes, delete"):
+            delete_item_assets(cid, LOCAL_MODE, blob_service)
             st.session_state.Items.pop(idx)
             for k in list(st.session_state.keys()):
                 if k.endswith(f"_{cid}"):
@@ -178,11 +119,13 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
                     img = upload or camera
 
                     if img:
-                        url = save_image(st.session_state.user["email"], cid, label, img)
+                        url = save_image(st.session_state.user["email"], cid, label, img, LOCAL_MODE, blob_service)
                         st.session_state[f"{label}_{cid}"] = url
 
                     if st.session_state.get(f"{label}_{cid}"):
                         st.image(st.session_state[f"{label}_{cid}"], caption=label.title())
+                        if st.button("🗑️ Remove Image", key=f"rm_{label}_{cid}"):
+                            remove_image(cid, label, LOCAL_MODE, blob_service)
 
             with c3:
                 audio_data = audiorecorder(key=f"audio_{cid}")
@@ -232,7 +175,8 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
 def run_collection():
     user_email = login()
     st.subheader(f"Welcome {user_email}!")
-    load_state(user_email)
+    load_state(user_email, LOCAL_MODE, blob_service)
+    rehydrate_image_urls(LOCAL_MODE, blob_service)
 
     setup_page()
     st.write("---")
@@ -255,7 +199,7 @@ def run_collection():
         st.markdown("---")
         render_Item(i, cid, allow_del, model, all_tags, sel_tags)
 
-    save_state(user_email)
+    save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service)
 
 if __name__ == "__main__":
     run_collection()
