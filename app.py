@@ -44,8 +44,26 @@ def setup_page():
         </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("""
+    <style>
+    .tag-pills span{
+    display:inline-block;padding:2px 10px;margin:0 6px 6px 0;
+    border-radius:9999px;background:#e8f0fe;color:#1a73e8;font-size:.85rem;
+    white-space:nowrap;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # --- Tag Widget ---
 def tag_filter_widget(label, list_key, select_key):
+    def pills(tags, selected):
+        html = "<div class='tag-pills'>" + "".join(
+            f"<span style=\"background:{'#1a73e8' if t in selected else '#e8f0fe'};"
+            f"color:{'white' if t in selected else '#1a73e8'}\">{t}</span>"
+            for t in tags
+        ) + "</div>"
+        st.markdown(html, unsafe_allow_html=True)
+
     if list_key not in st.session_state:
         st.session_state[list_key] = []
 
@@ -54,8 +72,13 @@ def tag_filter_widget(label, list_key, select_key):
     if tag != "" and tag not in st.session_state[list_key]:
         st.session_state[list_key].append(tag)
 
-    st.info(f"Available tags: {st.session_state[list_key]}")
-
+    st.markdown(
+        "<div class='tag-pills'>" +
+        "".join(f"<span>{t}</span>" for t in st.session_state[list_key]) +
+        "</div>",
+        unsafe_allow_html=True
+    )
+    st.write("")
 
     selected = st.multiselect(
         "Filter by tags",
