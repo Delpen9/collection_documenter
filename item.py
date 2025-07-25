@@ -155,9 +155,17 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                 st.session_state[item_id][f"transcript"] = text_area
 
             # Initialize tag state and render widget
-            tag_key = f"tag_selections"
+            tag_key = "tag_selections"
             if tag_key not in st.session_state[item_id]:
                 st.session_state[item_id][tag_key] = []
+
+            # if the user deletes a tag at the top of the page
+            # this logic makes sure this tag is removed from the
+            # tag selections
+            st.session_state[item_id][tag_key] = [
+                t for t in st.session_state[item_id][tag_key]
+                if t in tag_options
+            ]
 
             tag_selections_for_item = st.multiselect(
                 "Add Tags",

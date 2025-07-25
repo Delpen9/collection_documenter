@@ -98,6 +98,20 @@ def tag_filter_widget(label, list_key):
         "</div>",
         unsafe_allow_html=True
     )
+
+    st.write("")
+
+    # delete existing tags
+    to_delete = st.multiselect(
+        "🗑️ Remove tag(s):",
+        options=st.session_state[list_key],
+    )
+    if to_delete and st.button("Delete selected"):
+        for t in to_delete:
+            st.session_state[list_key].remove(t)
+
+        save_state( st.session_state.user["email"], LOCAL_MODE, blob_service)
+
     st.write("")
 
     selected = st.multiselect(
@@ -106,6 +120,49 @@ def tag_filter_widget(label, list_key):
         default=[],
     )
     return st.session_state[list_key], selected
+
+# def tag_filter_widget(label, list_key):
+#     def pills(tags, selected):
+#         html = "<div class='tag-pills'>" + "".join(
+#             f"<span style=\"background:{'#1a73e8' if t in selected else '#e8f0fe'};"
+#             f"color:{'white' if t in selected else '#1a73e8'}\">{t}</span>"
+#             for t in tags
+#         ) + "</div>"
+#         st.markdown(html, unsafe_allow_html=True)
+
+#     # initialize
+#     tags = st.session_state.setdefault(list_key, [])
+
+#     # add new tag
+#     new_tag = st.text_input(label, placeholder="Type & press Enter", key=f"{list_key}_add_input")
+#     if new_tag and new_tag not in tags:
+#         tags.append(new_tag)
+
+#     # show pills
+#     pills(tags, [])
+
+#     st.write("")  # spacer
+
+#     # delete existing tags
+#     to_delete = st.multiselect(
+#         "🗑️ Remove tag(s):",
+#         options=tags,
+#         key=f"{list_key}_delete_select"
+#     )
+#     if to_delete and st.button("Delete selected", key=f"{list_key}_delete_button"):
+#         for t in to_delete:
+#             tags.remove(t)
+
+#     st.write("")  # spacer
+
+#     # filter by tags (unchanged)
+#     selected = st.multiselect(
+#         "Filter by tags",
+#         options=tags,
+#         default=[],
+#         key=f"{list_key}_filter"
+#     )
+#     return tags, selected
 
 # --- Main ---
 def run_collection(DEBUG_MODE: bool):
@@ -149,8 +206,9 @@ def run_collection(DEBUG_MODE: bool):
 
     if DEBUG_MODE:
         st.write("---")
-        st.write(st.session_state)
+        with st.expander("Click here to view session details:", expanded=False):
+            st.write(st.session_state)
 
 if __name__ == "__main__":
-    DEBUG_MODE = False
+    DEBUG_MODE = True
     run_collection(DEBUG_MODE=DEBUG_MODE)
