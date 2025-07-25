@@ -129,9 +129,21 @@ def run_collection(DEBUG_MODE: bool):
     model = load_model()
     allow_del = len(st.session_state.Items) > 1
 
+    total = len(st.session_state.Items)
+    shown = 0
+
     for item_index, item_id in enumerate(st.session_state.Items):
-        st.markdown("---")
-        render_Item(item_index, item_id, allow_del, model, all_tags, sel_tags)
+        item_tags = st.session_state[item_id]["tag_selections"]
+
+        # does this item pass the filter?
+        if (not sel_tags) or set(item_tags).intersection(sel_tags):
+            shown += 1
+            st.markdown("---")
+            render_Item(item_index, item_id, allow_del, model, all_tags, sel_tags)
+
+    hidden = total - shown
+    st.write("---")
+    st.info(f"{hidden} item{'s' if hidden!=1 else ''} hidden")
 
     save_state(user_email, LOCAL_MODE, blob_service)
 
@@ -140,5 +152,5 @@ def run_collection(DEBUG_MODE: bool):
         st.write(st.session_state)
 
 if __name__ == "__main__":
-    DEBUG_MODE = True
+    DEBUG_MODE = False
     run_collection(DEBUG_MODE=DEBUG_MODE)

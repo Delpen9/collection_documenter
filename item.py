@@ -36,10 +36,6 @@ else:
 from persistence import *
 
 # --- Item Handlers ---
-def generate_widget_id(length: int=20):
-    alphabet = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
-
 def generate_item_id(length: int=10):
     alphabet = string.ascii_letters + string.digits
     return "item_id_" + ''.join(secrets.choice(alphabet) for _ in range(length))
