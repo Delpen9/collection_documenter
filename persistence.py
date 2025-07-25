@@ -17,7 +17,7 @@ BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
-PERSIST_KEYS = {"main_tags_list", "main_tags_select", "Items", "_image_paths"}
+PERSIST_KEYS = {"main_tags_list", "Items", "_image_paths"}
 
 # Initialize blob client if needed
 if not LOCAL_MODE:
@@ -45,29 +45,53 @@ def load_state(user_email, LOCAL_MODE, blob_service):
     except Exception:
         pass
 
-def save_image(user_email, item_id, label, image_data, LOCAL_MODE, blob_service):
-    if LOCAL_MODE or blob_service is None:
-        return image_data
+def save_image(user_email, cid, label, img, local_mode, blob_service):
+    ext = img.type.split("/")[-1]
+    blob_name = f"{user_email}/{cid}_{label}.{ext}"
 
-    img_bytes = image_data.read() if hasattr(image_data, "read") else image_data
-    blob_path = f"{user_email}/{item_id}_{label}.png"
-    blob_cli = blob_service.get_blob_client(container=IMAGE_CONTAINER, blob=blob_path)
-    blob_cli.upload_blob(img_bytes, overwrite=True)
+    if local_mode:
+        # local disk write
+        path = os.path.join("images", blob_name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # read the bytes once:
+        content = img.read()
+        with open(path, "wb") as f:
+            f.write(content)
+        # reset buffer so Streamlit can read it later if needed
+        img.seek(0)
+        return blob_name
 
-    # remember the path so we can rebuild a SAS later
-    st.session_state.setdefault("_image_paths", {}).setdefault(str(item_id), {})[label] = blob_path
-    return build_sas_url(blob_path, blob_service, LOCAL_MODE)
+    # for Azure upload, grab raw bytes (not a memoryview)
+    content = img.read()                     # <-- use read()
+    # if you ever need getbuffer, convert it:
+    # content = bytes(img.getbuffer())
+
+    container_client = blob_service.get_container_client(IMAGE_CONTAINER)
+    container_client.upload_blob(
+        name=blob_name,
+        data=content,                         # <-- now real bytes
+        overwrite=True,
+    )
+    # reset buffer so any downstream code that inspects img still works
+    img.seek(0)
+
+    return blob_name
 
 def build_sas_url(blob_path, blob_service, hours=1):
+    start = datetime.utcnow() - timedelta(minutes=5)      # see next point
+    expiry = datetime.utcnow() + timedelta(hours=hours)
     sas = generate_blob_sas(
-        account_name=blob_service.account_name,
-        container_name=IMAGE_CONTAINER,
-        blob_name=blob_path,
-        account_key=ACCOUNT_KEY,
-        permission=BlobSasPermissions(read=True),
-        expiry=datetime.utcnow() + timedelta(hours=hours),
+        account_name = blob_service.account_name,
+        container_name = IMAGE_CONTAINER,
+        blob_name = blob_path,
+        account_key = ACCOUNT_KEY,
+        permission = BlobSasPermissions(read=True),
+        start = start,
+        expiry = expiry,
     )
-    return f"https://{blob_service.account_name}.blob.core.windows.net/{IMAGE_CONTAINER}/{blob_path}?{sas}"
+    return (f"https://{blob_service.account_name}"
+            f".blob.core.windows.net/{IMAGE_CONTAINER}"
+            f"/{blob_path}?{sas}")
 
 def rehydrate_image_urls(LOCAL_MODE, blob_service):
     if LOCAL_MODE or blob_service is None:

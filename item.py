@@ -21,7 +21,7 @@ BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
-PERSIST_KEYS = {"main_tags_list", "main_tags_select", "Items", "_image_paths"}
+PERSIST_KEYS = {"main_tags_list", "Items", "_image_paths"}
 
 # Initialize blob client if needed
 if not LOCAL_MODE:
@@ -88,10 +88,14 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
                         url = save_image(st.session_state.user["email"], cid, label, img, LOCAL_MODE, blob_service)
                         st.session_state[f"{label}_{cid}"] = url
 
-                    if st.session_state.get(f"{label}_{cid}"):
-                        st.image(st.session_state[f"{label}_{cid}"], caption=label.title())
-                        if st.button("🗑️ Remove Image", key=f"rm_{label}_{cid}"):
-                            remove_image(cid, label, LOCAL_MODE, blob_service)
+                    blob_name = st.session_state.get(f"{label}_{cid}", "")
+                    if blob_name.startswith(st.session_state.user["email"]):
+                        # build a brand‐new SAS URL (with fresh start/expiry)
+                        url = build_sas_url(blob_name, blob_service, hours=1)
+                        st.image(url, caption=label.title())
+
+                    if st.button("🗑️ Remove Image", key=f"rm_{label}_{cid}"):
+                        remove_image(cid, label, LOCAL_MODE, blob_service)
 
             with c3:
                 audio_data = audiorecorder(key=f"audio_{cid}")
@@ -130,7 +134,7 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
                 default=st.session_state[tag_key],
                 key=tag_key
             )
-
+            
         if not selected_filters and st.button("➕ Add Item Below", key=f"add_{cid}"):
             add_Item(idx)
 
