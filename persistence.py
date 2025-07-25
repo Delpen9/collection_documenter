@@ -76,6 +76,15 @@ def save_state(user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
 
+    # if a key has "DO_NOT_PERSIST" in the name, it needs to be deleted directly
+    # before save
+    for k in list(st.session_state.keys()):
+        if "DO_NOT_PERSIST" in k:
+            del st.session_state[k]
+
+        if "token" in st.session_state:
+            del st.session_state["token"]
+            
     # only persist keys we know are JSON-safe
     state_to_save = {
         k: st.session_state[k]

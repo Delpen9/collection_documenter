@@ -36,19 +36,26 @@ else:
 from persistence import *
 
 # --- Item Handlers ---
+def generate_widget_id(length: int=20):
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
 def generate_item_id(length: int=10):
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
-def add_Item(item_index: int):
-    st.session_state.Items.insert(item_index+1, generate_item_id())
+def add_Item(item_index: int, user_email: str):
+    new_item_id = generate_item_id()
+    st.session_state.Items.insert(item_index + 1, new_item_id)
+    st.session_state[new_item_id] = {}
+    save_state(user_email, LOCAL_MODE, blob_service)
 
 @st.dialog("Confirm delete", width="small")
-def confirm_delete(item_index, item_id):
+def confirm_delete(item_index, item_id, user_email):
     st.write(f"Delete item **#{item_id}**?")
     yes, no = st.columns(2)
     with yes:
-        if st.button("Yes, delete"):
+        if st.button("Yes, delete", key=f"DO_NOT_PERSIST_yes_delete_{item_id}"):
             delete_item_assets(item_id, LOCAL_MODE, blob_service)
 
             # there is a generic item_id list that is maintained
@@ -58,9 +65,12 @@ def confirm_delete(item_index, item_id):
             # each item has a dictionary of key entries
             # this removes that dictionary from the session_state
             del st.session_state[item_id]
+
+            save_state(user_email, LOCAL_MODE, blob_service)
             st.rerun()
+
     with no:
-        if st.button("Cancel"):
+        if st.button("Cancel", key=f"DO_NOT_PERSIST_no_{item_id}"):
             st.rerun()
 
 # --- Render Item ---
@@ -74,7 +84,11 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
     if title_key not in st.session_state[item_id]:
         st.session_state[item_id][title_key] = "Default Item Title"
 
-    title_input = st.text_input("", value=st.session_state[item_id][title_key])
+    title_input = st.text_input(
+        "",
+        value=st.session_state[item_id][title_key],
+        key=f"DO_NOT_PERSIST_title_input_{item_id}"
+    )
     st.session_state[item_id][title_key] = title_input
 
     with st.container():
@@ -89,7 +103,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                         upload = st.file_uploader(
                             "",
                             type=["png","jpg","jpeg"],
-                            key=f"DO_NOT_PERSIST_upload_{label}_{item_id}"
+                            key=f"DO_NOT_PERSIST_file_uploader_{label}_{item_id}"
                         )
 
                     with tabs[1]:
@@ -113,15 +127,15 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                         url = build_sas_url(blob_name, blob_service, hours=1)
                         st.image(url, caption=label.title())
 
-                        if st.button("🗑️ Remove Image"):
+                        if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{item_id}"):
                             remove_image(item_id, label, LOCAL_MODE, blob_service)
 
             with c3:
-                audio_data = audiorecorder(key=f"DO_NOT_PERSIST_audio_{item_id}")
+                audio_data = audiorecorder(key=f"DO_NOT_PERSIST_audio_recorder_{item_id}")
                 if audio_data:
                     st.audio(audio_data.export().read(), format="audio/wav")
 
-                if st.button("📝 Transcribe", key=f"DO_NOT_PERSIST_transcribe_button_{item_id}"):
+                if st.button("📝 Transcribe", key=f"DO_NOT_PERSIST_transcribe_{item_id}"):
                     buf = io.BytesIO(audio_data.export().read())
                     data, sr = sf.read(buf)
 
@@ -153,6 +167,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                 "Add Tags",
                 options=tag_options,
                 default=st.session_state[item_id][tag_key],
+                key=f"DO_NOT_PERSIST_add_item_tags_{item_id}",
             )
 
             st.session_state[item_id][tag_key] = tag_selections_for_item
@@ -161,12 +176,10 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
             st.button(
                 "➕ Add Item Below",
                 on_click=add_Item,
-                args=(item_index,),
+                args=(item_index, st.session_state.user["email"]),
+                key=f"DO_NOT_PERSIST_add_item_below_{item_id}"
             )
 
         if allow_delete:
-            st.button(
-                "🗑️ Delete Item",
-                on_click=confirm_delete,
-                args=(item_index, item_id)
-            )
+            if st.button("🗑️ Delete Item", key=f"DO_NOT_PERSIST_delete_item_{item_id}"):
+                confirm_delete(item_index, item_id, st.session_state.user["email"])
