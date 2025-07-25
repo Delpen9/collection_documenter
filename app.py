@@ -133,7 +133,16 @@ def run_collection():
         st.markdown("---")
         render_Item(item_index, item_id, allow_del, model, all_tags, sel_tags)
 
-    save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service)
+    # if a key has "DO_NOT_PERSIST" in the name, it needs to be deleted directly
+    # before save
+    for k in list(st.session_state.keys()):
+        if "DO_NOT_PERSIST" in k:
+            del st.session_state[k]
+
+        if "token" in st.session_state:
+            del st.session_state["token"]
+
+    save_state(user_email, LOCAL_MODE, blob_service)
 
     st.write(st.session_state)
 

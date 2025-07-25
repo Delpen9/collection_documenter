@@ -3,6 +3,8 @@ import io
 import re
 import json
 import time
+import string
+import secrets
 import streamlit as st
 import soundfile as sf
 import librosa
@@ -72,7 +74,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
     if title_key not in st.session_state[item_id]:
         st.session_state[item_id][title_key] = "Default Item Title"
 
-    title_input = st.text_input("", default=st.session_state[title_key])
+    title_input = st.text_input("", value=st.session_state[item_id][title_key])
     st.session_state[item_id][title_key] = title_input
 
     with st.container():
@@ -111,7 +113,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                         url = build_sas_url(blob_name, blob_service, hours=1)
                         st.image(url, caption=label.title())
 
-                        if st.button("🗑️ Remove Image", key=f"rm_{label}_{item_id}"):
+                        if st.button("🗑️ Remove Image"):
                             remove_image(item_id, label, LOCAL_MODE, blob_service)
 
             with c3:
@@ -155,8 +157,16 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
 
             st.session_state[item_id][tag_key] = tag_selections_for_item
             
-        if not selected_filters and st.button("➕ Add Item Below", key=f"add_{item_id}"):
-            add_Item(item_index)
+        if not selected_filters:
+            st.button(
+                "➕ Add Item Below",
+                on_click=add_Item,
+                args=(item_index,),
+            )
 
-        if allow_delete and st.button("🗑️ Delete Item", key=f"del_{item_id}"):
-            confirm_delete(item_index, item_id)
+        if allow_delete:
+            st.button(
+                "🗑️ Delete Item",
+                on_click=confirm_delete,
+                args=(item_index, item_id)
+            )

@@ -26,13 +26,18 @@ if not LOCAL_MODE:
 else:
     blob_service = None
     
-def save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service):
+def save_state(user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
 
-    state = {k: st.session_state[k] for k in PERSIST_KEYS if k in st.session_state}
+    # only persist keys we know are JSON-safe
+    state_to_save = {
+        k: st.session_state[k]
+        for k in st.session_state
+    }
+
     blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
-    blob.upload_blob(json.dumps(state), overwrite=True)
+    blob.upload_blob(json.dumps(state_to_save), overwrite=True)
 
 def load_state(user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
