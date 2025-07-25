@@ -25,20 +25,11 @@ if not LOCAL_MODE:
     blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 else:
     blob_service = None
-    
-def save_state(user_email, LOCAL_MODE, blob_service):
-    if LOCAL_MODE:
-        return
 
-    # only persist keys we know are JSON-safe
-    state_to_save = {
-        k: st.session_state[k]
-        for k in st.session_state
-    }
 
-    blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
-    blob.upload_blob(json.dumps(state_to_save), overwrite=True)
-
+################################
+## READ FUNCTIONALITY
+################################
 def load_state(user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
@@ -52,6 +43,47 @@ def load_state(user_email, LOCAL_MODE, blob_service):
 
     except Exception:
         pass
+
+def build_sas_url(blob_path, blob_service, hours=1):
+    start = datetime.utcnow() - timedelta(minutes=5)      # see next point
+    expiry = datetime.utcnow() + timedelta(hours=hours)
+    sas = generate_blob_sas(
+        account_name = blob_service.account_name,
+        container_name = IMAGE_CONTAINER,
+        blob_name = blob_path,
+        account_key = ACCOUNT_KEY,
+        permission = BlobSasPermissions(read=True),
+        start = start,
+        expiry = expiry,
+    )
+    return (f"https://{blob_service.account_name}"
+            f".blob.core.windows.net/{IMAGE_CONTAINER}"
+            f"/{blob_path}?{sas}")
+
+def rehydrate_image_urls(LOCAL_MODE, blob_service):
+    if LOCAL_MODE or blob_service is None:
+        return
+
+    for item_id, labels in st.session_state.get("_image_paths", {}).items():
+        for label, blob_path in labels.items():
+            st.session_state[f"{label}_{item_id}"] = build_sas_url(blob_path, blob_service, LOCAL_MODE)
+
+
+################################
+## CREATE AND UPDATE FUNCTIONALITY
+################################
+def save_state(user_email, LOCAL_MODE, blob_service):
+    if LOCAL_MODE:
+        return
+
+    # only persist keys we know are JSON-safe
+    state_to_save = {
+        k: st.session_state[k]
+        for k in st.session_state
+    }
+
+    blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
+    blob.upload_blob(json.dumps(state_to_save), overwrite=True)
 
 def save_image(user_email, item_id, label, img, local_mode, blob_service):
     ext = img.type.split("/")[-1]
@@ -85,30 +117,9 @@ def save_image(user_email, item_id, label, img, local_mode, blob_service):
 
     return blob_name
 
-def build_sas_url(blob_path, blob_service, hours=1):
-    start = datetime.utcnow() - timedelta(minutes=5)      # see next point
-    expiry = datetime.utcnow() + timedelta(hours=hours)
-    sas = generate_blob_sas(
-        account_name = blob_service.account_name,
-        container_name = IMAGE_CONTAINER,
-        blob_name = blob_path,
-        account_key = ACCOUNT_KEY,
-        permission = BlobSasPermissions(read=True),
-        start = start,
-        expiry = expiry,
-    )
-    return (f"https://{blob_service.account_name}"
-            f".blob.core.windows.net/{IMAGE_CONTAINER}"
-            f"/{blob_path}?{sas}")
-
-def rehydrate_image_urls(LOCAL_MODE, blob_service):
-    if LOCAL_MODE or blob_service is None:
-        return
-
-    for item_id, labels in st.session_state.get("_image_paths", {}).items():
-        for label, blob_path in labels.items():
-            st.session_state[f"{label}_{item_id}"] = build_sas_url(blob_path, blob_service, LOCAL_MODE)
-
+################################
+## DELETE FUNCTIONALITY
+################################
 def delete_blob_by_path(blob_path, LOCAL_MODE, blob_service):
     if LOCAL_MODE or blob_service is None:
         return
