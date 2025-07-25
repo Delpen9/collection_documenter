@@ -1,0 +1,2 @@
+1. Need to restructure the session state code
+2. Need to change the way the session state is persisted (update persist keys logic)

@@ -29,6 +29,7 @@ else:
 def save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
+
     state = {k: st.session_state[k] for k in PERSIST_KEYS if k in st.session_state}
     blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
     blob.upload_blob(json.dumps(state), overwrite=True)
@@ -36,18 +37,20 @@ def save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service):
 def load_state(user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
+
     try:
         blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
         raw = blob.download_blob().readall()
         saved = json.loads(raw)
         for k, v in saved.items():
             st.session_state[k] = v
+
     except Exception:
         pass
 
-def save_image(user_email, cid, label, img, local_mode, blob_service):
+def save_image(user_email, item_id, label, img, local_mode, blob_service):
     ext = img.type.split("/")[-1]
-    blob_name = f"{user_email}/{cid}_{label}.{ext}"
+    blob_name = f"{user_email}/{item_id}_{label}.{ext}"
 
     if local_mode:
         # local disk write
@@ -96,32 +99,38 @@ def build_sas_url(blob_path, blob_service, hours=1):
 def rehydrate_image_urls(LOCAL_MODE, blob_service):
     if LOCAL_MODE or blob_service is None:
         return
-    for cid, labels in st.session_state.get("_image_paths", {}).items():
+
+    for item_id, labels in st.session_state.get("_image_paths", {}).items():
         for label, blob_path in labels.items():
-            st.session_state[f"{label}_{cid}"] = build_sas_url(blob_path, blob_service, LOCAL_MODE)
+            st.session_state[f"{label}_{item_id}"] = build_sas_url(blob_path, blob_service, LOCAL_MODE)
 
 def delete_blob_by_path(blob_path, LOCAL_MODE, blob_service):
     if LOCAL_MODE or blob_service is None:
         return
+
     try:
         blob_service.get_blob_client(IMAGE_CONTAINER, blob_path).delete_blob(delete_snapshots="include")
     except Exception:
         pass
 
-def remove_image(cid, label, LOCAL_MODE, blob_service):
-    paths = st.session_state.get("_image_paths", {}).get(str(cid), {})
+def remove_image(item_id, label, LOCAL_MODE, blob_service):
+    paths = st.session_state.get("_image_paths", {}).get(str(item_id), {})
     blob_path = paths.pop(label, None)
-    if not blob_path and st.session_state.get(f"{label}_{cid}"):
-        url = st.session_state[f"{label}_{cid}"]
+
+    if not blob_path and st.session_state.get(f"{label}_{item_id}"):
+        url = st.session_state[f"{label}_{item_id}"]
         # fallback if you only have a SAS url
         blob_path = url.split(f"{IMAGE_CONTAINER}/", 1)[-1].split("?", 1)[0]
+
     if blob_path:
         delete_blob_by_path(blob_path, LOCAL_MODE, blob_service)
-    for k in (f"{label}_{cid}", f"upload_{label}_{cid}", f"camera_{label}_{cid}"):
+
+    for k in (f"{label}_{item_id}", f"upload_{label}_{item_id}", f"camera_{label}_{item_id}"):
         st.session_state.pop(k, None)
+
     st.rerun()
 
-def delete_item_assets(cid, LOCAL_MODE, blob_service):
-    paths = st.session_state.get("_image_paths", {}).pop(str(cid), {})
+def delete_item_assets(item_id, LOCAL_MODE, blob_service):
+    paths = st.session_state.get("_image_paths", {}).pop(str(item_id), {})
     for blob_path in paths.values():
         delete_blob_by_path(blob_path, LOCAL_MODE, blob_service)

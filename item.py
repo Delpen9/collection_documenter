@@ -34,34 +34,46 @@ else:
 from persistence import *
 
 # --- Item Handlers ---
-def add_Item(idx: int):
-    next_id = max(st.session_state.Items, default=-1) + 1
-    st.session_state.Items.insert(idx+1, next_id)
+def generate_item_id(length: int=10):
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+def add_Item(item_index: int):
+    st.session_state.Items.insert(item_index+1, generate_item_id())
 
 @st.dialog("Confirm delete", width="small")
-def confirm_delete(idx, cid):
-    st.write(f"Delete item **#{cid}**?")
+def confirm_delete(item_index, item_id):
+    st.write(f"Delete item **#{item_id}**?")
     yes, no = st.columns(2)
     with yes:
         if st.button("Yes, delete"):
-            delete_item_assets(cid, LOCAL_MODE, blob_service)
-            st.session_state.Items.pop(idx)
-            for k in list(st.session_state.keys()):
-                if k.endswith(f"_{cid}"):
-                    st.session_state.pop(k)
+            delete_item_assets(item_id, LOCAL_MODE, blob_service)
+
+            # there is a generic item_id list that is maintained
+            # this line removes that
+            st.session_state.Items.pop(item_index)
+
+            # each item has a dictionary of key entries
+            # this removes that dictionary from the session_state
+            del st.session_state[item_id]
             st.rerun()
     with no:
         if st.button("Cancel"):
             st.rerun()
 
 # --- Render Item ---
-def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
-    # Initialize default name before widget
-    name_key = f"Item_name_{cid}"
-    if name_key not in st.session_state:
-        st.session_state[name_key] = "Default Item Name"
+def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_filters):
+    # we really want every item to be a nested dictionary
+    # in the session_state
+    if item_id not in st.session_state:
+        st.session_state[item_id] = {}
 
-    st.text_input("", st.session_state[name_key], key=name_key)
+    title_key = "item_title"
+    if title_key not in st.session_state[item_id]:
+        st.session_state[item_id][title_key] = "Default Item Title"
+
+    title_input = st.text_input("", default=st.session_state[title_key])
+    st.session_state[item_id][title_key] = title_input
 
     with st.container():
         with st.expander("Details", expanded=True):
@@ -69,40 +81,45 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
             for col, label in zip((c1, c2), ("front", "back")):
                 with col:
                     st.markdown(f"**Upload {label.title()} Image**")
+
                     tabs = st.tabs(["Upload", "Camera"])
                     with tabs[0]:
                         upload = st.file_uploader(
                             "",
                             type=["png","jpg","jpeg"],
-                            key=f"upload_{label}_{cid}"
+                            key=f"DO_NOT_PERSIST_upload_{label}_{item_id}"
                         )
 
                     with tabs[1]:
                         camera = st.camera_input(
                             f"Snap {label.title()} Photo",
-                            key=f"camera_{label}_{cid}"
+                            key=f"DO_NOT_PERSIST_camera_{label}_{item_id}"
                         )
+
                     img = upload or camera
+                    image_key = f"image_{label}"
 
                     if img:
-                        url = save_image(st.session_state.user["email"], cid, label, img, LOCAL_MODE, blob_service)
-                        st.session_state[f"{label}_{cid}"] = url
+                        url = save_image(st.session_state.user["email"], item_id, label, img, LOCAL_MODE, blob_service)
 
-                    blob_name = st.session_state.get(f"{label}_{cid}", "")
+                        if image_key not in st.session_state[item_id]:
+                            st.session_state[item_id][image_key] = url
+
+                    blob_name = st.session_state[item_id].get(image_key, "")
                     if blob_name.startswith(st.session_state.user["email"]):
                         # build a brand‐new SAS URL (with fresh start/expiry)
                         url = build_sas_url(blob_name, blob_service, hours=1)
                         st.image(url, caption=label.title())
 
-                    if st.button("🗑️ Remove Image", key=f"rm_{label}_{cid}"):
-                        remove_image(cid, label, LOCAL_MODE, blob_service)
+                        if st.button("🗑️ Remove Image", key=f"rm_{label}_{item_id}"):
+                            remove_image(item_id, label, LOCAL_MODE, blob_service)
 
             with c3:
-                audio_data = audiorecorder(key=f"audio_{cid}")
+                audio_data = audiorecorder(key=f"DO_NOT_PERSIST_audio_{item_id}")
                 if audio_data:
                     st.audio(audio_data.export().read(), format="audio/wav")
 
-                if st.button("📝 Transcribe", key=f"trans_{cid}"):
+                if st.button("📝 Transcribe", key=f"DO_NOT_PERSIST_transcribe_button_{item_id}"):
                     buf = io.BytesIO(audio_data.export().read())
                     data, sr = sf.read(buf)
 
@@ -113,30 +130,33 @@ def render_Item(idx, cid, allow_delete, model, tag_options, selected_filters):
                         data = librosa.resample(data, orig_sr=sr, target_sr=16000)
 
                     text = model.transcribe(data.astype("float32"), fp16=False)["text"]
-                    st.session_state[f"transcript_{cid}"] = text
+                    st.session_state[item_id][f"transcript"] = text
 
                 # Use unique key for text_area to avoid duplicates
-                st.text_area(
+                text_area = st.text_area(
                     "Transcription",
-                    value=st.session_state.get(f"transcript_{cid}", ""),
+                    value=st.session_state[item_id].get(f"transcript", ""),
                     height=150,
-                    key=f"note_{cid}"
+                    key=f"DO_NOT_PERSIST_text_area_{item_id}"
                 )
 
-            # Initialize tag state and render widget
-            tag_key = f"tag_selection_{cid}"
-            if tag_key not in st.session_state:
-                st.session_state[tag_key] = []
+                st.session_state[item_id][f"transcript"] = text_area
 
-            st.multiselect(
+            # Initialize tag state and render widget
+            tag_key = f"tag_selections"
+            if tag_key not in st.session_state[item_id]:
+                st.session_state[item_id][tag_key] = []
+
+            tag_selections_for_item = st.multiselect(
                 "Add Tags",
                 options=tag_options,
-                default=st.session_state[tag_key],
-                key=tag_key
+                default=st.session_state[item_id][tag_key],
             )
-            
-        if not selected_filters and st.button("➕ Add Item Below", key=f"add_{cid}"):
-            add_Item(idx)
 
-        if allow_delete and st.button("🗑️ Delete Item", key=f"del_{cid}"):
-            confirm_delete(idx, cid)
+            st.session_state[item_id][tag_key] = tag_selections_for_item
+            
+        if not selected_filters and st.button("➕ Add Item Below", key=f"add_{item_id}"):
+            add_Item(item_index)
+
+        if allow_delete and st.button("🗑️ Delete Item", key=f"del_{item_id}"):
+            confirm_delete(item_index, item_id)

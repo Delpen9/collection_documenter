@@ -124,14 +124,14 @@ def run_collection():
     st.session_state["main_tags_list"] = all_tags
 
     if "Items" not in st.session_state:
-        st.session_state.Items = [0]
+        st.session_state.Items = [generate_item_id()]
 
     model = load_model()
     allow_del = len(st.session_state.Items) > 1
 
-    for i, cid in enumerate(st.session_state.Items):
+    for item_index, item_id in enumerate(st.session_state.Items):
         st.markdown("---")
-        render_Item(i, cid, allow_del, model, all_tags, sel_tags)
+        render_Item(item_index, item_id, allow_del, model, all_tags, sel_tags)
 
     save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service)
 
