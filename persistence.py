@@ -41,6 +41,14 @@ def load_state(user_email, LOCAL_MODE, blob_service):
         for k, v in saved.items():
             st.session_state[k] = v
 
+        # there is a weird race condition where
+        # when items are deleted, their session_state value remains with {}
+        # while no longer being in the "Items" list
+        # this is a bandaid to fix that situation
+        for key_val in st.session_state.keys():
+            if key_val.startswith("item_id") and key_val not in st.session_state.Items:
+                del st.session_state[key_val]
+
     except Exception:
         pass
 

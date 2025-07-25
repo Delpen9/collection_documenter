@@ -42,7 +42,7 @@ def generate_widget_id(length: int=20):
 
 def generate_item_id(length: int=10):
     alphabet = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+    return "item_id_" + ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def add_Item(item_index: int, user_email: str):
     new_item_id = generate_item_id()
