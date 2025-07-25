@@ -83,8 +83,7 @@ def tag_filter_widget(label, list_key, select_key):
     selected = st.multiselect(
         "Filter by tags",
         options=st.session_state[list_key],
-        default=st.session_state.get(select_key, st.session_state[list_key]),
-        key=select_key,
+        default=[],
     )
     return st.session_state[list_key], selected
 
