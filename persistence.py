@@ -147,23 +147,27 @@ def delete_blob_by_path(blob_path, LOCAL_MODE, blob_service):
         pass
 
 def remove_image(item_id, label, LOCAL_MODE, blob_service):
-    paths = st.session_state.get("_image_paths", {}).get(str(item_id), {})
-    blob_path = paths.pop(label, None)
+    # get the image path that we are trying to delete
+    image_path = st.session_state[item_id].get(f"image_{label}", None)
 
-    if not blob_path and st.session_state.get(f"{label}_{item_id}"):
-        url = st.session_state[f"{label}_{item_id}"]
-        # fallback if you only have a SAS url
-        blob_path = url.split(f"{IMAGE_CONTAINER}/", 1)[-1].split("?", 1)[0]
+    # we need to delete the url and blob path from the session_state
+    # to prevent the image from coming back
+    del st.session_state[item_id][f"image_{label}"]
+    save_state(st.session_state.user["email"], LOCAL_MODE, blob_service)
 
-    if blob_path:
-        delete_blob_by_path(blob_path, LOCAL_MODE, blob_service)
-
-    for k in (f"{label}_{item_id}", f"upload_{label}_{item_id}", f"camera_{label}_{item_id}"):
-        st.session_state.pop(k, None)
-
+    # delete the image in azure blob storage
+    delete_blob_by_path(image_path, LOCAL_MODE, blob_service)
+    
+    # this forces the changes to be reflected on the webpage
+    # otherwise the image simply remains there until a page refresh
     st.rerun()
 
 def delete_item_assets(item_id, LOCAL_MODE, blob_service):
-    paths = st.session_state.get("_image_paths", {}).pop(str(item_id), {})
-    for blob_path in paths.values():
-        delete_blob_by_path(blob_path, LOCAL_MODE, blob_service)
+    front_image_path = st.session_state[item_id].get("image_front", None)
+    back_image_path = st.session_state[item_id].get("image_back", None)
+
+    if front_image_path:
+        delete_blob_by_path(front_image_path, LOCAL_MODE, blob_service)
+
+    if back_image_path:
+        delete_blob_by_path(back_image_path, LOCAL_MODE, blob_service)

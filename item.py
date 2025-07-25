@@ -127,7 +127,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                         url = build_sas_url(blob_name, blob_service, hours=1)
                         st.image(url, caption=label.title())
 
-                        if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{item_id}"):
+                        if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{label}_{item_id}"):
                             remove_image(item_id, label, LOCAL_MODE, blob_service)
 
             with c3:
