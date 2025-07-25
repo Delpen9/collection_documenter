@@ -10,11 +10,31 @@ from audiorecorder import audiorecorder
 from authentication import login, show_streamlit_ui, hide_streamlit_ui
 from datetime import datetime, timedelta
 
+# Optional Azure imports only when not in local mode
+def import_blob_libs():
+    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+    return BlobServiceClient, generate_blob_sas, BlobSasPermissions
+
 # --- Persistence Helpers ---
 from persistence import *
 
 # --- Item Helpers ---
 from item import *
+
+# --- Configuration ---
+LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
+BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
+STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
+IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
+ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
+PERSIST_KEYS = {"main_tags_list", "Items", "_image_paths"}
+
+# Initialize blob client if needed
+if not LOCAL_MODE:
+    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
+    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
+else:
+    blob_service = None
 
 @st.cache_resource
 def load_model():
@@ -104,16 +124,27 @@ def run_collection():
     st.session_state["main_tags_list"] = all_tags
 
     if "Items" not in st.session_state:
-        st.session_state.Items = [0]
+        st.session_state.Items = [generate_item_id()]
 
     model = load_model()
     allow_del = len(st.session_state.Items) > 1
 
-    for i, cid in enumerate(st.session_state.Items):
+    for item_index, item_id in enumerate(st.session_state.Items):
         st.markdown("---")
-        render_Item(i, cid, allow_del, model, all_tags, sel_tags)
+        render_Item(item_index, item_id, allow_del, model, all_tags, sel_tags)
 
-    save_state(user_email, PERSIST_KEYS, LOCAL_MODE, blob_service)
+    # if a key has "DO_NOT_PERSIST" in the name, it needs to be deleted directly
+    # before save
+    for k in list(st.session_state.keys()):
+        if "DO_NOT_PERSIST" in k:
+            del st.session_state[k]
+
+        if "token" in st.session_state:
+            del st.session_state["token"]
+
+    save_state(user_email, LOCAL_MODE, blob_service)
+
+    st.write(st.session_state)
 
 if __name__ == "__main__":
     run_collection()
