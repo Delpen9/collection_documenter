@@ -6,7 +6,6 @@ import time
 import streamlit as st
 from datetime import datetime, timedelta
 
-# Optional Azure imports only when not in local mode
 def import_blob_libs():
     from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
     return BlobServiceClient, generate_blob_sas, BlobSasPermissions
