@@ -96,7 +96,7 @@ def setup_page(page_title: str):
     """, unsafe_allow_html=True)
 
 # --- Tag Widget ---
-def tag_filter_widget(collection_name, label, list_key):
+def tag_filter_widget(collection_name, list_key):
     def pills(tags, selected):
         html = "<div class='tag-pills'>" + "".join(
             f"<span style=\"background:{'#1a73e8' if t in selected else '#e8f0fe'};"
@@ -108,7 +108,7 @@ def tag_filter_widget(collection_name, label, list_key):
     if list_key not in st.session_state:
         st.session_state[list_key] = []
 
-    tag = st.text_input(label, placeholder="Type & press Enter")
+    tag = st.text_input("Add tag", placeholder="Type & press Enter")
 
     if tag != "" and tag not in st.session_state[list_key]:
         st.session_state[list_key].append(tag)
@@ -151,9 +151,11 @@ def run_collection(collection_name: str, DEBUG_MODE: bool):
 
     all_tags, sel_tags = tag_filter_widget(
         collection_name,
-        "Add tag",
         "main_tags_list",
     )
+
+    if "Collection" not in st.session_state:
+        st.session_state.Collection = collection_name
 
     if "Items" not in st.session_state:
         st.session_state.Items = [generate_item_id()]
