@@ -41,27 +41,49 @@ def load_model():
     return whisper.load_model("base")
 
 # --- UI Setup ---
-def setup_page():
+def setup_page(page_title: str):
     st.set_page_config(
-        page_title="Collectible Documenter",
+        page_title=page_title,
         layout="wide",
         initial_sidebar_state="expanded"
     )
     hide_streamlit_ui()
     show_streamlit_ui()
-    st.markdown("""
+    st.markdown(
+        f"""
         <style>
-            #MainMenu {visibility: hidden;} footer {visibility: hidden;} .stApp {padding: 2rem;}
-            .banner-container { padding: 1rem 2rem; border-radius: 0.5rem; margin-bottom:1.5rem; text-align:center;
-                font-family:'Segoe UI',sans-serif;border:1px solid;box-shadow:0 2px 8px rgba(0,0,0,0.05);
-                transition:background-color .3s,color .3s,border-color .3s; }
-            .Item-container { background:#f9f9f9;border-radius:1rem;padding:1.5rem;margin-bottom:1.5rem;
-                box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:background .3s,color .3s,box-shadow .3s; }
+        #MainMenu {{ visibility: hidden; }}
+        footer {{ visibility: hidden; }}
+
+        .stApp {{ padding: 2rem; }}
+
+        .banner-container {{
+            padding: 1rem 2rem;
+            border: 1px solid;s
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-family: 'Segoe UI', sans-serif;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: background-color .3s, color .3s, border-color .3s;
+        }}
+
+        .Item-container {{
+            background: #f9f9f9;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: background .3s, color .3s, box-shadow .3s;
+        }}
         </style>
+
         <div class="banner-container">
-            <h1 style="margin:0;font-size:2.2rem;">Collectible Documenter</h1>
+        <h1 style="margin: 0; font-size: 2.2rem;">{page_title}</h1>
         </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown("""
     <style>
@@ -74,7 +96,7 @@ def setup_page():
     """, unsafe_allow_html=True)
 
 # --- Tag Widget ---
-def tag_filter_widget(label, list_key):
+def tag_filter_widget(collection_name, label, list_key):
     def pills(tags, selected):
         html = "<div class='tag-pills'>" + "".join(
             f"<span style=\"background:{'#1a73e8' if t in selected else '#e8f0fe'};"
@@ -100,16 +122,13 @@ def tag_filter_widget(label, list_key):
 
     st.write("")
 
-    # delete existing tags
-    to_delete = st.multiselect(
-        "🗑️ Remove tag(s):",
-        options=st.session_state[list_key],
-    )
-    if to_delete and st.button("Delete selected"):
-        for t in to_delete:
-            st.session_state[list_key].remove(t)
-
-        save_state( st.session_state.user["email"], LOCAL_MODE, blob_service)
+    # we want the user to type the tag in which they want to delete
+    # because this will prevent them from deleting the tag accidentally
+    tag_to_remove = st.text_input("Remove tag", placeholder="Type & press Enter to delete a tag")
+    if tag_to_remove in st.session_state[list_key]:
+        st.session_state[list_key].remove(tag_to_remove)
+        save_state(collection_name, st.session_state.user["email"], LOCAL_MODE, blob_service)
+        st.rerun()
 
     st.write("")
 
@@ -121,20 +140,20 @@ def tag_filter_widget(label, list_key):
     return st.session_state[list_key], selected
 
 # --- Main ---
-def run_collection(DEBUG_MODE: bool):
+def run_collection(collection_name: str, DEBUG_MODE: bool):
     user_email = login()
-    st.subheader(f"Welcome {user_email}!")
-    load_state(user_email, LOCAL_MODE, blob_service)
-    rehydrate_image_urls(LOCAL_MODE, blob_service)
+    st.info(f"Welcome user {user_email}!")
 
-    setup_page()
+    load_state(collection_name, user_email, LOCAL_MODE, blob_service)
+
+    setup_page(page_title=collection_name)
     st.write("---")
 
     all_tags, sel_tags = tag_filter_widget(
+        collection_name,
         "Add tag",
         "main_tags_list",
     )
-    st.session_state["main_tags_list"] = all_tags
 
     if "Items" not in st.session_state:
         st.session_state.Items = [generate_item_id()]
@@ -146,19 +165,19 @@ def run_collection(DEBUG_MODE: bool):
     shown = 0
 
     for item_index, item_id in enumerate(st.session_state.Items):
-        item_tags = st.session_state[item_id]["tag_selections"]
+        item_tags = st.session_state.get(item_id, {}).get("tag_selections", [])
 
         # does this item pass the filter?
         if (not sel_tags) or set(item_tags).intersection(sel_tags):
             shown += 1
             st.markdown("---")
-            render_Item(item_index, item_id, allow_del, model, all_tags, sel_tags)
+            render_Item(collection_name, item_index, item_id, allow_del, model, all_tags, sel_tags)
 
     hidden = total - shown
     st.write("---")
     st.info(f"{hidden} item{'s' if hidden!=1 else ''} hidden")
 
-    save_state(user_email, LOCAL_MODE, blob_service)
+    save_state(collection_name, user_email, LOCAL_MODE, blob_service)
 
     if DEBUG_MODE:
         st.write("---")
@@ -166,5 +185,6 @@ def run_collection(DEBUG_MODE: bool):
             st.write(st.session_state)
 
 if __name__ == "__main__":
+    collection_name = "My First Collection"
     DEBUG_MODE = True
-    run_collection(DEBUG_MODE=DEBUG_MODE)
+    run_collection(collection_name=collection_name, DEBUG_MODE=DEBUG_MODE)

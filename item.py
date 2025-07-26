@@ -39,14 +39,14 @@ def generate_item_id(length: int=10):
     alphabet = string.ascii_letters + string.digits
     return "item_id_" + ''.join(secrets.choice(alphabet) for _ in range(length))
 
-def add_Item(item_index: int, user_email: str):
+def add_Item(collection_name: str, item_index: int, user_email: str):
     new_item_id = generate_item_id()
     st.session_state.Items.insert(item_index + 1, new_item_id)
     st.session_state[new_item_id] = {}
-    save_state(user_email, LOCAL_MODE, blob_service)
+    save_state(collection_name, user_email, LOCAL_MODE, blob_service)
 
 @st.dialog("Confirm delete", width="small")
-def confirm_delete(item_index, item_id, user_email):
+def confirm_delete(collection_name, item_index, item_id, user_email):
     st.write(f"Delete item **#{item_id}**?")
     yes, no = st.columns(2)
     with yes:
@@ -61,7 +61,7 @@ def confirm_delete(item_index, item_id, user_email):
             # this removes that dictionary from the session_state
             del st.session_state[item_id]
 
-            save_state(user_email, LOCAL_MODE, blob_service)
+            save_state(collection_name, user_email, LOCAL_MODE, blob_service)
             st.rerun()
 
     with no:
@@ -69,7 +69,7 @@ def confirm_delete(item_index, item_id, user_email):
             st.rerun()
 
 # --- Render Item ---
-def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_filters):
+def render_Item(collection_name, item_index, item_id, allow_delete, model, tag_options, selected_filters):
     # we really want every item to be a nested dictionary
     # in the session_state
     if item_id not in st.session_state:
@@ -111,7 +111,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                     image_key = f"image_{label}"
 
                     if img:
-                        url = save_image(st.session_state.user["email"], item_id, label, img, LOCAL_MODE, blob_service)
+                        url = save_image(collection_name, st.session_state.user["email"], item_id, label, img, LOCAL_MODE, blob_service)
 
                         if image_key not in st.session_state[item_id]:
                             st.session_state[item_id][image_key] = url
@@ -123,7 +123,7 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
                         st.image(url, caption=label.title())
 
                         if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{label}_{item_id}"):
-                            remove_image(item_id, label, LOCAL_MODE, blob_service)
+                            remove_image(collection_name, item_id, label, LOCAL_MODE, blob_service)
 
             with c3:
                 audio_data = audiorecorder(key=f"DO_NOT_PERSIST_audio_recorder_{item_id}")
@@ -179,10 +179,10 @@ def render_Item(item_index, item_id, allow_delete, model, tag_options, selected_
             st.button(
                 "➕ Add Item Below",
                 on_click=add_Item,
-                args=(item_index, st.session_state.user["email"]),
+                args=(collection_name, item_index, st.session_state.user["email"]),
                 key=f"DO_NOT_PERSIST_add_item_below_{item_id}"
             )
 
         if allow_delete:
             if st.button("🗑️ Delete Item", key=f"DO_NOT_PERSIST_delete_item_{item_id}"):
-                confirm_delete(item_index, item_id, st.session_state.user["email"])
+                confirm_delete(collection_name, item_index, item_id, st.session_state.user["email"])
