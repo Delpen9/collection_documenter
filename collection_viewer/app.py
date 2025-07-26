@@ -7,12 +7,12 @@ import streamlit as st
 import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
-from authentication import login, show_streamlit_ui, hide_streamlit_ui
-from datetime import datetime, timedelta
+from urllib.parse import unquote_plus
+from dotenv import load_dotenv
 
-def import_blob_libs():
-    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
-    return BlobServiceClient, generate_blob_sas, BlobSasPermissions
+load_dotenv()  # if you’re using a .env file
+
+from datetime import datetime, timedelta
 
 # --- Persistence Helpers ---
 from persistence import *
@@ -24,11 +24,41 @@ from item import *
 BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
-ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
+ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY")
 
 # Initialize blob client if needed
 BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
+
+def import_blob_libs():
+    from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+    return BlobServiceClient, generate_blob_sas, BlobSasPermissions
+
+def login():
+    qp = st.query_params
+
+    # 1) If we see the callback params, bootstrap session_state.user
+    if "django_auth" in qp and "user" not in st.session_state:
+        email = qp.get("email", [""])[0]
+        name  = qp.get("name",  [""])[0]
+        if email:
+            # decode in case of URL-encoding
+            st.session_state.user = {
+                "email": unquote_plus(email),
+                "name":  unquote_plus(name),
+            }
+
+    # 2) If still not logged in, send them to Django’s login
+    if "user" not in st.session_state:
+        js = """
+        <script>
+          window.location.href = "http://localhost:8000/oauth/login/";
+        </script>
+        """
+        st.components.v1.html(js, height=0)
+        st.stop()
+
+    return st.session_state.user["email"]
 
 @st.cache_resource
 def load_model():
