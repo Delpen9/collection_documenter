@@ -75,15 +75,23 @@ def save_state(collection_name, user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
 
-    # if a key has "DO_NOT_PERSIST" in the name, it needs to be deleted directly
+    # if a key has particular patterns in the name, it needs to be deleted directly
     # before save
-    for k in list(st.session_state.keys()):
-        if "DO_NOT_PERSIST" in k:
+    patterns = [
+        "DO_NOT_PERSIST",
+        "del_main_tags_list_",
+        "new_tag_input",
+        "sel_main_tags_list",
+        "main_tags_list_to_delete",
+    ]
+
+    for k in list(st.session_state.keys()):  # list(...) so we can delete safely
+        if any(pat in k for pat in patterns):
             del st.session_state[k]
 
-        if "token" in st.session_state:
-            del st.session_state["token"]
-            
+    if "token" in st.session_state:
+        del st.session_state["token"]
+
     # only persist keys we know are JSON-safe
     state_to_save = {
         k: st.session_state[k]
