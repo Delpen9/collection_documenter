@@ -22,18 +22,14 @@ from persistence import *
 from item import *
 
 # --- Configuration ---
-LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
 BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
 
 # Initialize blob client if needed
-if not LOCAL_MODE:
-    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
-    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
-else:
-    blob_service = None
+BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
+blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 @st.cache_resource
 def load_model():
@@ -110,6 +106,9 @@ def tag_filter_widget(collection_name, list_key):
 
     tag = st.text_input("Add tag", placeholder="Type & press Enter")
 
+    if tag in st.session_state[list_key]:
+        st.warning("This tag already exists.")
+
     if tag != "" and tag not in st.session_state[list_key]:
         st.session_state[list_key].append(tag)
 
@@ -127,7 +126,7 @@ def tag_filter_widget(collection_name, list_key):
     tag_to_remove = st.text_input("Remove tag", placeholder="Type & press Enter to delete a tag")
     if tag_to_remove in st.session_state[list_key]:
         st.session_state[list_key].remove(tag_to_remove)
-        save_state(collection_name, st.session_state.user["email"], LOCAL_MODE, blob_service)
+        save_state(collection_name, st.session_state.user["email"], blob_service)
         st.rerun()
 
     st.write("")
@@ -144,7 +143,7 @@ def run_collection(collection_name: str, DEBUG_MODE: bool):
     user_email = login()
     st.info(f"Welcome user {user_email}!")
 
-    load_state(collection_name, user_email, LOCAL_MODE, blob_service)
+    load_state(collection_name, user_email, blob_service)
 
     setup_page(page_title=collection_name)
     st.write("---")
@@ -179,7 +178,7 @@ def run_collection(collection_name: str, DEBUG_MODE: bool):
     st.write("---")
     st.info(f"{hidden} item{'s' if hidden!=1 else ''} hidden")
 
-    save_state(collection_name, user_email, LOCAL_MODE, blob_service)
+    save_state(collection_name, user_email, blob_service)
 
     if DEBUG_MODE:
         st.write("---")

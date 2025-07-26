@@ -4,3 +4,5 @@
 4. Unencrypt images on load
 5. Add collections page with Django
 6. Add login on Django for Google O-Auth
+7. Add purchase and sale receipts
+8. Add additional image option
