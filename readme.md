@@ -1,22 +1,35 @@
-Start NGINX:
-brew services start nginx
+Local Development
 
-Stop/Restart NGINX:
-brew services stop nginx
-brew services restart nginx
+🚀 Run Django
 
-Running Django locally:
-python manage.py migrate # ONLY if this hasn't been done yet
+# Apply any pending migrations (only required once)
+python manage.py migrate
+
+# Start the Django server on 0.0.0.0:8000
 python manage.py runserver 0.0.0.0:8000
 
-Running Streamlit locally:
+⚡️ Run Streamlit
+
+# Launch the Streamlit app on port 8501
 streamlit run collection_viewer/app.py --server.port 8501
 
+⸻
 
-The navigate here in the browser:
+🔑 OAuth Flow
+	1.	Kick off login
+Open your browser at:
+
 http://localhost:8000/oauth/login/
 
-Then login.
 
-Link to Google Login API Configuration:
+	2.	Complete Google sign-in
+	3.	Redirect back to Streamlit with your session
+
+⸻
+
+🔗 Google OAuth Client
+
+[Configure your OAuth client in Google Cloud Console]
+(Authorized redirect URI must be http://localhost:8000/oauth/auth/callback/)
+
 https://console.cloud.google.com/auth/clients/771174142379-7plbgb4o00f2huotsaqjjd7g6fglb54g.apps.googleusercontent.com?inv=1&invt=Ab30qA

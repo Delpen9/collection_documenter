@@ -45,7 +45,7 @@ def auth_callback(request):
 
     user = userinfo["email"]
     name = userinfo.get("name", "")
-    params = urlencode({"django_auth":"1", "email":user, "name":name})
+    params = urlencode({"django_auth":"1", "email": user, "name": name})
     return redirect(f"{settings.STREAMLIT_URL}/?{params}")
 
 def me(request):

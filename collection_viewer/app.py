@@ -39,8 +39,8 @@ def login():
 
     # 1) If we see the callback params, bootstrap session_state.user
     if "django_auth" in qp and "user" not in st.session_state:
-        email = qp.get("email", [""])[0]
-        name  = qp.get("name",  [""])[0]
+        email = qp.get("email", [""])
+        name = qp.get("name",  [""])
         if email:
             # decode in case of URL-encoding
             st.session_state.user = {
