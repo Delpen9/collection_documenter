@@ -27,7 +27,6 @@ BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
-PERSIST_KEYS = {"main_tags_list", "Items", "_image_paths"}
 
 # Initialize blob client if needed
 if not LOCAL_MODE:
