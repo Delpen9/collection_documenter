@@ -1,0 +1,6 @@
+1. Compress images before saving
+2. Encrypt images before saving
+3. Decompress images on load
+4. Unencrypt images on load
+5. Add collections page with Django
+6. Add login on Django for Google O-Auth
