@@ -7,12 +7,13 @@ import streamlit as st
 import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
-from urllib.parse import unquote_plus
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()  # if you’re using a .env file
 
-from datetime import datetime, timedelta
+# --- Authentication Helpers ---
+from authentication import *
 
 # --- Persistence Helpers ---
 from persistence import *
@@ -34,32 +35,6 @@ def import_blob_libs():
     from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
     return BlobServiceClient, generate_blob_sas, BlobSasPermissions
 
-def login():
-    qp = st.query_params
-
-    # 1) If we see the callback params, bootstrap session_state.user
-    if "django_auth" in qp and "user" not in st.session_state:
-        email = qp.get("email", [""])
-        name = qp.get("name",  [""])
-        if email:
-            # decode in case of URL-encoding
-            st.session_state.user = {
-                "email": unquote_plus(email),
-                "name":  unquote_plus(name),
-            }
-
-    # 2) If still not logged in, send them to Django’s login
-    if "user" not in st.session_state:
-        js = """
-        <script>
-          window.location.href = "http://localhost:8000/oauth/login/";
-        </script>
-        """
-        st.components.v1.html(js, height=0)
-        st.stop()
-
-    return st.session_state.user["email"]
-
 @st.cache_resource
 def load_model():
     import whisper
@@ -72,8 +47,6 @@ def setup_page(page_title: str):
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    hide_streamlit_ui()
-    show_streamlit_ui()
     st.markdown(
         f"""
         <style>
@@ -170,6 +143,7 @@ def tag_filter_widget(collection_name, list_key):
 # --- Main ---
 def run_collection(collection_name: str, DEBUG_MODE: bool):
     user_email = login()
+    logout_button()
     st.info(f"Welcome user {user_email}!")
 
     load_state(collection_name, user_email, blob_service)

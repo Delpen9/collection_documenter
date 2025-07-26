@@ -1,9 +1,18 @@
+import requests
 from django.shortcuts import redirect
 from django.conf import settings
 from django.http import JsonResponse
 from authlib.integrations.django_client import OAuth
 from django.http import HttpResponseServerError
+from django.http import HttpResponseRedirect
 from urllib.parse import urlencode
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()  # if you’re using a .env file
+
+STREAMLIT_URL = os.getenv("STREAMLIT_URL", "http://localhost:8501")
 
 # Set up OAuth *once*, using settings
 oauth = OAuth()
@@ -50,3 +59,24 @@ def auth_callback(request):
 
 def me(request):
     return JsonResponse(request.session.get("user", {}))
+
+def logout(request):
+    # revoke Google token if you saved it
+    token = request.session.get("token", {}).get("access_token")
+    if token:
+        requests.post(
+            "https://oauth2.googleapis.com/revoke",
+            params={"token": token},
+            headers={"content-type": "application/x-www-form-urlencoded"},
+        )
+
+    # flush the Django session completely
+    request.session.flush()
+
+    response = HttpResponseRedirect(STREAMLIT_URL)
+
+    # nuke the cookies so the browser truly "forgets" you
+    response.delete_cookie("sessionid")
+    response.delete_cookie("csrftoken")
+
+    return response
