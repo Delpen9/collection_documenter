@@ -17,7 +17,6 @@ BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
-PERSIST_KEYS = {"main_tags_list", "Items", "_image_paths"}
 
 # Initialize blob client if needed
 if not LOCAL_MODE:
@@ -30,12 +29,13 @@ else:
 ################################
 ## READ FUNCTIONALITY
 ################################
-def load_state(user_email, LOCAL_MODE, blob_service):
+def load_state(collection_name, user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
 
     try:
-        blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
+        blob_name = f"{user_email}/{collection_name}.json"
+        blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
         raw = blob.download_blob().readall()
         saved = json.loads(raw)
         for k, v in saved.items():
@@ -68,19 +68,10 @@ def build_sas_url(blob_path, blob_service, hours=1):
             f".blob.core.windows.net/{IMAGE_CONTAINER}"
             f"/{blob_path}?{sas}")
 
-def rehydrate_image_urls(LOCAL_MODE, blob_service):
-    if LOCAL_MODE or blob_service is None:
-        return
-
-    for item_id, labels in st.session_state.get("_image_paths", {}).items():
-        for label, blob_path in labels.items():
-            st.session_state[f"{label}_{item_id}"] = build_sas_url(blob_path, blob_service, LOCAL_MODE)
-
-
 ################################
 ## CREATE AND UPDATE FUNCTIONALITY
 ################################
-def save_state(user_email, LOCAL_MODE, blob_service):
+def save_state(collection_name, user_email, LOCAL_MODE, blob_service):
     if LOCAL_MODE:
         return
 
@@ -99,21 +90,24 @@ def save_state(user_email, LOCAL_MODE, blob_service):
         for k in st.session_state
     }
 
-    blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=f"{user_email}.json")
+    blob_name = f"{user_email}/{collection_name}.json"
+    blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
     blob.upload_blob(json.dumps(state_to_save), overwrite=True)
 
-def save_image(user_email, item_id, label, img, local_mode, blob_service):
+def save_image(collection_name, user_email, item_id, label, img, local_mode, blob_service):
     ext = img.type.split("/")[-1]
-    blob_name = f"{user_email}/{item_id}_{label}.{ext}"
+    blob_name = f"{user_email}/{collection_name}/{item_id}_{label}.{ext}"
 
     if local_mode:
         # local disk write
         path = os.path.join("images", blob_name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
+
         # read the bytes once:
         content = img.read()
         with open(path, "wb") as f:
             f.write(content)
+
         # reset buffer so Streamlit can read it later if needed
         img.seek(0)
         return blob_name
@@ -126,9 +120,10 @@ def save_image(user_email, item_id, label, img, local_mode, blob_service):
     container_client = blob_service.get_container_client(IMAGE_CONTAINER)
     container_client.upload_blob(
         name=blob_name,
-        data=content,                         # <-- now real bytes
+        data=content,
         overwrite=True,
     )
+
     # reset buffer so any downstream code that inspects img still works
     img.seek(0)
 
@@ -146,14 +141,14 @@ def delete_blob_by_path(blob_path, LOCAL_MODE, blob_service):
     except Exception:
         pass
 
-def remove_image(item_id, label, LOCAL_MODE, blob_service):
+def remove_image(collection_name, item_id, label, LOCAL_MODE, blob_service):
     # get the image path that we are trying to delete
     image_path = st.session_state[item_id].get(f"image_{label}", None)
 
     # we need to delete the url and blob path from the session_state
     # to prevent the image from coming back
     del st.session_state[item_id][f"image_{label}"]
-    save_state(st.session_state.user["email"], LOCAL_MODE, blob_service)
+    save_state(collection_name, st.session_state.user["email"], LOCAL_MODE, blob_service)
 
     # delete the image in azure blob storage
     delete_blob_by_path(image_path, LOCAL_MODE, blob_service)
