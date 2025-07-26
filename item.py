@@ -18,18 +18,14 @@ def import_blob_libs():
     return BlobServiceClient, generate_blob_sas, BlobSasPermissions
 
 # --- Configuration ---
-LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
 BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
 
 # Initialize blob client if needed
-if not LOCAL_MODE:
-    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
-    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
-else:
-    blob_service = None
+BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
+blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 # --- Persistence Helpers ---
 from persistence import *
@@ -43,7 +39,7 @@ def add_Item(collection_name: str, item_index: int, user_email: str):
     new_item_id = generate_item_id()
     st.session_state.Items.insert(item_index + 1, new_item_id)
     st.session_state[new_item_id] = {}
-    save_state(collection_name, user_email, LOCAL_MODE, blob_service)
+    save_state(collection_name, user_email, blob_service)
 
 @st.dialog("Confirm delete", width="small")
 def confirm_delete(collection_name, item_index, item_id, user_email):
@@ -51,7 +47,7 @@ def confirm_delete(collection_name, item_index, item_id, user_email):
     yes, no = st.columns(2)
     with yes:
         if st.button("Yes, delete", key=f"DO_NOT_PERSIST_yes_delete_{item_id}"):
-            delete_item_assets(item_id, LOCAL_MODE, blob_service)
+            delete_item_assets(item_id, blob_service)
 
             # there is a generic item_id list that is maintained
             # this line removes that
@@ -61,7 +57,7 @@ def confirm_delete(collection_name, item_index, item_id, user_email):
             # this removes that dictionary from the session_state
             del st.session_state[item_id]
 
-            save_state(collection_name, user_email, LOCAL_MODE, blob_service)
+            save_state(collection_name, user_email, blob_service)
             st.rerun()
 
     with no:
@@ -111,7 +107,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, model, tag_o
                     image_key = f"image_{label}"
 
                     if img:
-                        url = save_image(collection_name, st.session_state.user["email"], item_id, label, img, LOCAL_MODE, blob_service)
+                        url = save_image(collection_name, st.session_state.user["email"], item_id, label, img, blob_service)
 
                         if image_key not in st.session_state[item_id]:
                             st.session_state[item_id][image_key] = url
@@ -123,7 +119,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, model, tag_o
                         st.image(url, caption=label.title())
 
                         if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{label}_{item_id}"):
-                            remove_image(collection_name, item_id, label, LOCAL_MODE, blob_service)
+                            remove_image(collection_name, item_id, label, blob_service)
 
             with c3:
                 audio_data = audiorecorder(key=f"DO_NOT_PERSIST_audio_recorder_{item_id}")

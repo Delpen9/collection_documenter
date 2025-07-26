@@ -12,27 +12,19 @@ def import_blob_libs():
     return BlobServiceClient, generate_blob_sas, BlobSasPermissions
 
 # --- Configuration ---
-LOCAL_MODE = os.getenv("LOCAL_MODE", "false").lower() == "true"
 BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
 STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
 IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
 ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
 
 # Initialize blob client if needed
-if not LOCAL_MODE:
-    BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
-    blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
-else:
-    blob_service = None
-
+BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
+blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 ################################
 ## READ FUNCTIONALITY
 ################################
-def load_state(collection_name, user_email, LOCAL_MODE, blob_service):
-    if LOCAL_MODE:
-        return
-
+def load_state(collection_name, user_email, blob_service):
     try:
         blob_name = f"{user_email}/{collection_name}.json"
         blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
@@ -71,10 +63,7 @@ def build_sas_url(blob_path, blob_service, hours=1):
 ################################
 ## CREATE AND UPDATE FUNCTIONALITY
 ################################
-def save_state(collection_name, user_email, LOCAL_MODE, blob_service):
-    if LOCAL_MODE:
-        return
-
+def save_state(collection_name, user_email, blob_service):
     # if a key has particular patterns in the name, it needs to be deleted directly
     # before save
     patterns = [
@@ -102,23 +91,9 @@ def save_state(collection_name, user_email, LOCAL_MODE, blob_service):
     blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
     blob.upload_blob(json.dumps(state_to_save), overwrite=True)
 
-def save_image(collection_name, user_email, item_id, label, img, local_mode, blob_service):
+def save_image(collection_name, user_email, item_id, label, img, blob_service):
     ext = img.type.split("/")[-1]
     blob_name = f"{user_email}/{collection_name}/{item_id}_{label}.{ext}"
-
-    if local_mode:
-        # local disk write
-        path = os.path.join("images", blob_name)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-
-        # read the bytes once:
-        content = img.read()
-        with open(path, "wb") as f:
-            f.write(content)
-
-        # reset buffer so Streamlit can read it later if needed
-        img.seek(0)
-        return blob_name
 
     # for Azure upload, grab raw bytes (not a memoryview)
     content = img.read()                     # <-- use read()
@@ -140,37 +115,34 @@ def save_image(collection_name, user_email, item_id, label, img, local_mode, blo
 ################################
 ## DELETE FUNCTIONALITY
 ################################
-def delete_blob_by_path(blob_path, LOCAL_MODE, blob_service):
-    if LOCAL_MODE or blob_service is None:
-        return
-
+def delete_blob_by_path(blob_path, blob_service):
     try:
         blob_service.get_blob_client(IMAGE_CONTAINER, blob_path).delete_blob(delete_snapshots="include")
     except Exception:
         pass
 
-def remove_image(collection_name, item_id, label, LOCAL_MODE, blob_service):
+def remove_image(collection_name, item_id, label, blob_service):
     # get the image path that we are trying to delete
     image_path = st.session_state[item_id].get(f"image_{label}", None)
 
     # we need to delete the url and blob path from the session_state
     # to prevent the image from coming back
     del st.session_state[item_id][f"image_{label}"]
-    save_state(collection_name, st.session_state.user["email"], LOCAL_MODE, blob_service)
+    save_state(collection_name, st.session_state.user["email"], blob_service)
 
     # delete the image in azure blob storage
-    delete_blob_by_path(image_path, LOCAL_MODE, blob_service)
+    delete_blob_by_path(image_path, blob_service)
     
     # this forces the changes to be reflected on the webpage
     # otherwise the image simply remains there until a page refresh
     st.rerun()
 
-def delete_item_assets(item_id, LOCAL_MODE, blob_service):
+def delete_item_assets(item_id, blob_service):
     front_image_path = st.session_state[item_id].get("image_front", None)
     back_image_path = st.session_state[item_id].get("image_back", None)
 
     if front_image_path:
-        delete_blob_by_path(front_image_path, LOCAL_MODE, blob_service)
+        delete_blob_by_path(front_image_path, blob_service)
 
     if back_image_path:
-        delete_blob_by_path(back_image_path, LOCAL_MODE, blob_service)
+        delete_blob_by_path(back_image_path, blob_service)
