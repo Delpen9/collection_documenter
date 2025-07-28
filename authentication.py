@@ -1,19 +1,17 @@
 import os
 import streamlit as st
 from authlib.integrations.requests_client import OAuth2Session
-from dotenv import load_dotenv
 
 from streamlit_js_eval import streamlit_js_eval
 
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as grequests
 
-load_dotenv()
-
-CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI")
-ALLOWED_EMAILS = {"iantdover@gmail.com"}
+# Load from Streamlit secrets.toml
+CLIENT_ID = st.secrets.google_oauth["GOOGLE_CLIENT_ID"]
+CLIENT_SECRET = st.secrets.google_oauth["GOOGLE_CLIENT_SECRET"]
+REDIRECT_URI  = st.secrets.google_oauth["OAUTH_REDIRECT_URI"]
+ALLOWED_EMAILS = set(st.secrets.google_oauth["ALLOWED_EMAILS"])
 
 @st.cache_resource
 def get_oauth_client():

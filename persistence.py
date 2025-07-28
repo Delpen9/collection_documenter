@@ -11,10 +11,10 @@ def import_blob_libs():
     return BlobServiceClient, generate_blob_sas, BlobSasPermissions
 
 # --- Configuration ---
-BLOB_CONN_STR = os.getenv("BLOB_CONN_STR")
-STATE_CONTAINER = os.getenv("STATE_CONTAINER", "session-state")
-IMAGE_CONTAINER = os.getenv("IMAGE_CONTAINER", "user-images")
-ACCOUNT_KEY = os.getenv("BLOB_ACCOUNT_KEY") or re.search(r"AccountKey=([^;]+)", BLOB_CONN_STR).group(1)
+BLOB_CONN_STR = st.secrets.blob_storage["BLOB_CONN_STR"]
+STATE_CONTAINER = st.secrets.blob_storage["STATE_CONTAINER"]
+IMAGE_CONTAINER  = st.secrets.blob_storage["IMAGE_CONTAINER"]
+ACCOUNT_KEY = set(st.secrets.blob_storage["BLOB_ACCOUNT_KEY"])
 
 # Initialize blob client if needed
 BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
