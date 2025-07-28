@@ -77,7 +77,7 @@ def google_button(auth_url):
     """, unsafe_allow_html=True)
 
 def get_current_url():
-    base_url = "http://localhost:8502"  # Replace with your actual Streamlit app URL in production
+    base_url = REDIRECT_URI
     query_params = st.query_params
 
     if not query_params:
