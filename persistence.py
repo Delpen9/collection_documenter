@@ -14,7 +14,7 @@ def import_blob_libs():
 BLOB_CONN_STR = st.secrets.blob_storage["BLOB_CONN_STR"]
 STATE_CONTAINER = st.secrets.blob_storage["STATE_CONTAINER"]
 IMAGE_CONTAINER  = st.secrets.blob_storage["IMAGE_CONTAINER"]
-ACCOUNT_KEY = set(st.secrets.blob_storage["BLOB_ACCOUNT_KEY"])
+ACCOUNT_KEY = st.secrets.blob_storage["BLOB_ACCOUNT_KEY"]
 
 # Initialize blob client if needed
 BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
