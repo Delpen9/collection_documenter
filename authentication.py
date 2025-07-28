@@ -13,26 +13,6 @@ CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI")
 ALLOWED_EMAILS = {"iantdover@gmail.com"}
 
-def hide_streamlit_ui():
-    st.markdown("""
-    <style>
-      /* hide header & footer */
-      #MainMenu, header, footer { visibility: hidden; }
-      /* full-viewport white background */
-      .appview-container { background: #fafafa; padding: 4rem; }
-    </style>
-    """, unsafe_allow_html=True)
-
-def show_streamlit_ui():
-    st.markdown("""
-    <style>
-      /* restore header & footer */
-      #MainMenu, header, footer { visibility: visible; }
-      /* reset any custom appview styles */
-      .appview-container { background: unset; padding: unset; }
-    </style>
-    """, unsafe_allow_html=True)
-
 @st.cache_resource
 def get_oauth_client():
     return OAuth2Session(
@@ -106,6 +86,163 @@ def get_current_url():
     query_string = "&".join(f"{k}={v}" for k, v in query_params.items())
     return f"{base_url}?{query_string}"
 
+
+def landing_page_decor(auth_url):
+    # Page configuration
+    st.set_page_config(
+        page_title="Collectible Documenter",
+        page_icon="🗂️",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+
+    # Inject custom CSS for styling + responsiveness
+    st.markdown(
+        """
+        <style>
+        /* Desktop styles */
+        body {
+            background-color: #121212;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 3rem;
+        }
+        .header h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            color: #FFDD57;
+            text-shadow: 0 4px 6px rgba(0, 0, 0, 0.8);
+            margin: 0;
+            letter-spacing: 2px;
+        }
+        .subheader {
+            text-align: center;
+            font-size: 1.3rem;
+            margin-top: 0.75rem;
+            color: #CCCCCC;
+        }
+        .features {
+            display: flex;
+            justify-content: space-around;
+            margin: 3rem 0;
+            perspective: 1000px;
+        }
+        .feature {
+            background: #1E1E1E;
+            max-width: 300px;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .feature:hover {
+            transform: translateY(-10px) rotateX(5deg);
+            box-shadow: 0 25px 35px rgba(0, 0, 0, 0.5);
+        }
+        .feature h3 {
+            margin-bottom: 1rem;
+            color: #FFFFFF;
+            font-size: 1.5rem;
+        }
+        .feature p {
+            color: #AAAAAA;
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+        .cta-button {
+            display: block;
+            margin: 2rem auto;
+        }
+
+        /* Mobile styles */
+        @media only screen and (max-width: 768px) {
+            .header {
+                /* switch to text-align centering */
+                text-align: center !important;
+                width: 100% !important;
+                margin: 2rem auto !important;
+            }
+            .header h1 {
+                /* make it inline-block so auto margins work */
+                display: inline-block !important;
+                margin: 0 auto !important;
+                font-size: 2.5rem !important;
+                letter-spacing: 1px !important;
+            }
+            .subheader {
+                font-size: 1rem !important;
+                margin: 1rem 1rem;
+            }
+            .features {
+                flex-direction: column !important;
+                align-items: center;
+                margin: 2rem 0;
+            }
+            .feature {
+                max-width: 90% !important;
+                padding: 1.5rem !important;
+                margin-bottom: 1.5rem;
+            }
+            .feature h3 {
+                font-size: 1.25rem !important;
+            }
+            .feature p {
+                font-size: 0.9rem !important;
+                line-height: 1.3;
+            }
+            .cta-button {
+                margin: 1.5rem auto !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Header section
+    st.markdown(
+        """
+        <div class="header">
+            <h1>Collectible Documenter</h1>
+        </div>
+        <div class="subheader">
+            Organize, document, and preserve your collectibles with ease.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    google_button(auth_url)
+
+    # Features section
+    st.markdown(
+        """
+        <div class="features">
+            <div class="feature">
+                <h3>📸 Upload Items</h3>
+                <p>Add images, audio recordings, and notes for each collectible.</p>
+            </div>
+            <div class="feature">
+                <h3>🔖 Tag & Categorize</h3>
+                <p>Organize items with tags and metadata for easy search.</p>
+            </div>
+            <div class="feature">
+                <h3>☁️ Cloud Storage</h3>
+                <p>Securely store all your data in Azure Blob Storage.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.write("---")
+    st.image("assets/login_banner.png", use_container_width=True)
+
 def login():
     client = get_oauth_client()
 
@@ -146,5 +283,7 @@ def login():
         prompt="consent",
     )
     st.session_state.oauth_state = state
-    google_button(auth_url)
+
+    landing_page_decor(auth_url)
+
     st.stop()

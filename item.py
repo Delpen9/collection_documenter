@@ -9,7 +9,7 @@ import streamlit as st
 import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
-from authentication import login, show_streamlit_ui, hide_streamlit_ui
+from authentication import login
 from datetime import datetime, timedelta
 
 def import_blob_libs():

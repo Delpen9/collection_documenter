@@ -7,7 +7,7 @@ import streamlit as st
 import soundfile as sf
 import librosa
 from audiorecorder import audiorecorder
-from authentication import login, show_streamlit_ui, hide_streamlit_ui
+from authentication import login
 from datetime import datetime, timedelta
 
 def import_blob_libs():
@@ -42,8 +42,6 @@ def setup_page(page_title: str):
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    hide_streamlit_ui()
-    show_streamlit_ui()
     st.markdown(
         f"""
         <style>
