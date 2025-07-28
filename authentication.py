@@ -3,6 +3,8 @@ import streamlit as st
 from authlib.integrations.requests_client import OAuth2Session
 from dotenv import load_dotenv
 
+from streamlit_js_eval import streamlit_js_eval
+
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as grequests
 
@@ -171,8 +173,8 @@ def landing_page_decor(auth_url):
                 /* make it inline-block so auto margins work */
                 display: inline-block !important;
                 margin: 0 auto !important;
-                font-size: 2.5rem !important;
-                letter-spacing: 1px !important;
+                font-size: 2.0rem !important;
+                letter-spacing: 0.25px !important;
             }
             .subheader {
                 font-size: 1rem !important;
@@ -203,6 +205,20 @@ def landing_page_decor(auth_url):
         """,
         unsafe_allow_html=True
     )
+
+    # Grab the innerWidth from the browser
+    screen_width = streamlit_js_eval(
+        js_expressions="window.innerWidth", 
+        key="SCREEN_WIDTH", 
+        want_output=True
+    )
+
+    is_mobile = False
+    if screen_width is not None:
+        is_mobile = screen_width < 768
+
+    if is_mobile:
+        st.image("assets/login_banner.png", use_container_width=True)
 
     # Header section
     st.markdown(
@@ -240,8 +256,9 @@ def landing_page_decor(auth_url):
         unsafe_allow_html=True
     )
 
-    st.write("---")
-    st.image("assets/login_banner.png", use_container_width=True)
+    if not is_mobile:
+        st.write("---")
+        st.image("assets/login_banner.png", use_container_width=True)
 
 def login():
     client = get_oauth_client()
