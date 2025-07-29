@@ -64,7 +64,8 @@ def delete_collection(user_email: str, name: str):
         pass
 
 def catalog(user_email):
-    st.write("---")
+    st.image("assets/color_banner.jpeg", use_container_width=True)
+
     st.markdown(
         "<h3 style='text-align: center;'>Your Collection Catalog</h3>",
         unsafe_allow_html=True,
@@ -101,7 +102,9 @@ def catalog(user_email):
                 st.session_state.selected_collection = collection
                 st.rerun()
 
-    st.write("")
+    _, col2, _ = st.columns([1, 4, 1])
+    with col2:
+        st.write("---")
 
     st.markdown(
         "<h4 style='text-align: center;'>Manage</h4>",
@@ -142,3 +145,5 @@ def catalog(user_email):
                 st.rerun()
             else:
                 st.warning("Please enter a name before adding.")
+
+    st.image("assets/color_banner.jpeg", use_container_width=True)

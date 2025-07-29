@@ -30,6 +30,8 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 def setup_page(collection_name: str):
     go_back_press = st.button("⬅️ Go Back")
 
+    st.image("assets/color_banner.jpeg", use_container_width=True)
+
     if go_back_press:
         st.session_state.selected_collection = None
         st.rerun()
@@ -133,7 +135,6 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
     load_state(collection_name, user_email, blob_service)
 
     setup_page(collection_name=collection_name)
-    st.write("---")
 
     all_tags, sel_tags = tag_filter_widget(
         collection_name,
@@ -170,3 +171,5 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
         st.write("---")
         with st.expander("Click here to view session details:", expanded=False):
             st.write(st.session_state)
+
+    st.image("assets/color_banner.jpeg", use_container_width=True)
