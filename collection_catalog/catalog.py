@@ -69,7 +69,6 @@ def catalog(user_email):
         "<h3 style='text-align: center;'>Your Collection Catalog</h3>",
         unsafe_allow_html=True,
     )
-    st.write("---")
 
     user_collection = retrieve_all_user_collections(user_email, blob_service)
 
@@ -94,43 +93,48 @@ def catalog(user_email):
         unsafe_allow_html=True,
     )
 
-    @st.dialog("Confirm delete", width="small")
-    def confirm_delete(user_email, collection):
-        st.write(f"Delete collection **#{collection}**?")
-        yes, no = st.columns(2)
-        with yes:
-            if st.button("Yes, delete", key=f"DO_NOT_PERSIST_yes_delete_{collection}"):
-                delete_collection(user_email, collection)
-                st.rerun()
-
-        with no:
-            if st.button("Cancel", key=f"DO_NOT_PERSIST_no_{collection}"):
-                st.rerun()
-
     for collection in user_collection:
-        col_del, col_sel = st.columns([1, 4], gap="small")
-
-        with col_del:
-            if st.button(
-                label="",
-                icon="🗑️",
-                type="tertiary",
-                key=f"DO_NOT_PERSIST_delete-btn-{collection}",
-                use_container_width=False,
-            ):
-                confirm_delete(user_email, collection)
+        _, col_sel, _ = st.columns([1, 4, 1], gap="small")
 
         with col_sel:
             if st.button(collection, key=f"DO_NOT_PERSIST_sel-{collection}"):
                 st.session_state.selected_collection = collection
                 st.rerun()
 
-    st.write("---")
+    st.write("")
+
+    st.markdown(
+        "<h3 style='text-align: center;'>Manage your Collection Catalog</h3>",
+        unsafe_allow_html=True,
+    )
+
+    @st.dialog("Confirm delete", width="small")
+    def confirm_delete(user_email, collection):
+        st.write(f"Delete collection **#{collection}**?")
+        yes, _ = st.columns(2)
+        with yes:
+            if st.button("Yes, delete", key=f"DO_NOT_PERSIST_yes_delete_{collection}"):
+                delete_collection(user_email, collection)
+                st.rerun()
+
+    _, col_sel, _ = st.columns([1, 4, 1], gap="small")
+
+    with col_sel:
+        delete_collection_text = st.text_input(
+            label="🗑️ Delete a Collection",
+            key=f"delete-txt-{collection}",
+        )
+
+        if delete_collection_text in user_collection:
+            confirm_delete(user_email, delete_collection_text)
+        elif delete_collection_text != "":
+            st.warning("This collection does not exist.")
 
     # Centered input + add button
     _, mid, _ = st.columns([1, 4, 1])
     with mid:
-        new_name = st.text_input("New collection name", key="DO_NOT_PERSIST_new_collection")
+        new_name = st.text_input("➕ Create a Collection", key="new_collection")
+
         if st.button("➕ Add Collection", key="add-new"):
             if new_name:
                 create_new_collection(user_email, new_name)
