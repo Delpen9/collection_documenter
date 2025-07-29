@@ -129,10 +129,13 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                         if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{label}_{item_id}"):
                             remove_image(collection_name, item_id, label, blob_service)
 
+                    if is_mobile:
+                        st.write("---")
+
+            with c3:
                 if is_mobile:
                     st.write("---")
 
-            with c3:
                 # Use unique key for text_area to avoid duplicates
                 text_area = st.text_area(
                     "Take Notes",
