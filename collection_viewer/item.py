@@ -25,7 +25,7 @@ BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 # --- Persistence Helpers ---
-from collection_viewer.persistence import *
+from persistence import *
 
 # --- Item Handlers ---
 def generate_item_id(length: int=10):
@@ -67,17 +67,6 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
     # in the session_state
     if item_id not in st.session_state:
         st.session_state[item_id] = {}
-
-    # Grab the innerWidth from the browser
-    screen_width = streamlit_js_eval(
-        js_expressions="window.innerWidth", 
-        key="SCREEN_WIDTH", 
-        want_output=True
-    )
-
-    is_mobile = False
-    if screen_width is not None:
-        is_mobile = screen_width < 768
 
     title_key = "item_title"
     if title_key not in st.session_state[item_id]:
@@ -129,12 +118,9 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                         if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{label}_{item_id}"):
                             remove_image(collection_name, item_id, label, blob_service)
 
-                    if is_mobile:
-                        st.write("---")
+                    st.write("---")
 
             with c3:
-                st.write("---")
-
                 # Use unique key for text_area to avoid duplicates
                 text_area = st.text_area(
                     "Take Notes",
@@ -144,6 +130,8 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                 )
 
                 st.session_state[item_id][f"notes"] = text_area
+
+                st.write("---")
 
             # Initialize tag state and render widget
             tag_key = "tag_selections"

@@ -11,7 +11,7 @@ def import_blob_libs():
     return BlobServiceClient, generate_blob_sas, BlobSasPermissions
 
 # --- Persistence Helpers ---
-from collection_viewer.persistence import *
+from persistence import *
 
 # --- Item Helpers ---
 from collection_viewer.item import *
@@ -27,12 +27,13 @@ BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 # --- UI Setup ---
-def setup_page(page_title: str):
-    st.set_page_config(
-        page_title=page_title,
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+def setup_page(collection_name: str):
+    go_back_press = st.button("⬅️ Go Back")
+
+    if go_back_press:
+        st.session_state.selected_collection = None
+        st.rerun()
+
     st.markdown(
         f"""
         <style>
@@ -63,7 +64,7 @@ def setup_page(page_title: str):
         </style>
 
         <div class="banner-container">
-        <h1 style="margin: 0; font-size: 2.2rem;">{page_title}</h1>
+        <h1 style="margin: 0; font-size: 2.2rem;">{collection_name}</h1>
         </div>
         """,
         unsafe_allow_html=True,
@@ -130,7 +131,7 @@ def tag_filter_widget(collection_name, list_key):
 def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
     load_state(collection_name, user_email, blob_service)
 
-    setup_page(page_title=collection_name)
+    setup_page(collection_name=collection_name)
     st.write("---")
 
     all_tags, sel_tags = tag_filter_widget(
