@@ -103,6 +103,11 @@ def catalog(user_email):
 
     st.write("")
 
+    st.markdown(
+        "<h3 style='text-align: center;'>Manage your Collection Catalog</h3>",
+        unsafe_allow_html=True,
+    )
+
     @st.dialog("Confirm delete", width="small")
     def confirm_delete(user_email, collection):
         st.write(f"Delete collection **#{collection}**?")
@@ -121,7 +126,9 @@ def catalog(user_email):
         )
 
         if delete_collection_text in user_collection:
-            confirm_delete(user_email, collection)
+            confirm_delete(user_email, delete_collection_text)
+        elif delete_collection_text != "":
+            st.warning("This collection does not exist.")
 
     # Centered input + add button
     _, mid, _ = st.columns([1, 4, 1])
