@@ -6,8 +6,9 @@ import time
 import string
 import secrets
 import streamlit as st
-from authentication import login
+from login import login
 from datetime import datetime, timedelta
+from streamlit_js_eval import streamlit_js_eval
 
 def import_blob_libs():
     from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -67,6 +68,17 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
     if item_id not in st.session_state:
         st.session_state[item_id] = {}
 
+    # Grab the innerWidth from the browser
+    screen_width = streamlit_js_eval(
+        js_expressions="window.innerWidth", 
+        key="SCREEN_WIDTH", 
+        want_output=True
+    )
+
+    is_mobile = False
+    if screen_width is not None:
+        is_mobile = screen_width < 768
+
     title_key = "item_title"
     if title_key not in st.session_state[item_id]:
         st.session_state[item_id][title_key] = "Default Item Title"
@@ -116,6 +128,9 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
 
                         if st.button("🗑️ Remove Image", key=f"DO_NOT_PERSIST_remove_image_{label}_{item_id}"):
                             remove_image(collection_name, item_id, label, blob_service)
+
+                if is_mobile:
+                    st.write("---")
 
             with c3:
                 # Use unique key for text_area to avoid duplicates
