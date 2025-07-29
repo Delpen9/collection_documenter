@@ -25,7 +25,7 @@ BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 # --- Persistence Helpers ---
-from persistence import *
+from collection_viewer.persistence import *
 
 # --- Item Handlers ---
 def generate_item_id(length: int=10):
