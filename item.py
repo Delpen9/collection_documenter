@@ -133,8 +133,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                         st.write("---")
 
             with c3:
-                if is_mobile:
-                    st.write("---")
+                st.write("---")
 
                 # Use unique key for text_area to avoid duplicates
                 text_area = st.text_area(
