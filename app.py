@@ -30,11 +30,6 @@ ACCOUNT_KEY = st.secrets.blob_storage["BLOB_ACCOUNT_KEY"]
 BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
-@st.cache_resource
-def load_model():
-    import whisper
-    return whisper.load_model("base")
-
 # --- UI Setup ---
 def setup_page(page_title: str):
     st.set_page_config(
@@ -156,7 +151,6 @@ def run_collection(collection_name: str, DEBUG_MODE: bool):
     if "Items" not in st.session_state:
         st.session_state.Items = [generate_item_id()]
 
-    model = load_model()
     allow_del = len(st.session_state.Items) > 1
 
     total = len(st.session_state.Items)
@@ -169,7 +163,7 @@ def run_collection(collection_name: str, DEBUG_MODE: bool):
         if (not sel_tags) or set(item_tags).intersection(sel_tags):
             shown += 1
             st.markdown("---")
-            render_Item(collection_name, item_index, item_id, allow_del, model, all_tags, sel_tags)
+            render_Item(collection_name, item_index, item_id, allow_del, all_tags, sel_tags)
 
     hidden = total - shown
     st.write("---")

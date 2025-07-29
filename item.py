@@ -64,7 +64,7 @@ def confirm_delete(collection_name, item_index, item_id, user_email):
             st.rerun()
 
 # --- Render Item ---
-def render_Item(collection_name, item_index, item_id, allow_delete, model, tag_options, selected_filters):
+def render_Item(collection_name, item_index, item_id, allow_delete, tag_options, selected_filters):
     # we really want every item to be a nested dictionary
     # in the session_state
     if item_id not in st.session_state:
