@@ -16,6 +16,9 @@ from persistence import *
 # --- Item Helpers ---
 from collection_viewer.item import *
 
+# --- PDF Helpers ---
+from collection_viewer.pdf_renderer import *
+
 # --- Configuration ---
 BLOB_CONN_STR = st.secrets.blob_storage["BLOB_CONN_STR"]
 STATE_CONTAINER = st.secrets.blob_storage["STATE_CONTAINER"]
@@ -135,6 +138,26 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
     load_state(collection_name, user_email, blob_service)
 
     setup_page(collection_name=collection_name)
+
+    # Usage in your Streamlit app (e.g. at bottom of run_collection):
+    pdf_buf = generate_collection_pdf(
+        collection_name=collection_name,
+        blob_service=blob_service,   # pass in your Azure blob client
+        sas_hours=1
+    )
+
+    st.write("---")
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{collection_name}_{today_str}.pdf"
+
+    # now render the button inside that div
+    st.download_button(
+        label="📄 Download Collection PDF",
+        data=pdf_buf,
+        file_name=filename,
+        mime="application/pdf"
+    )
 
     all_tags, sel_tags = tag_filter_widget(
         collection_name,

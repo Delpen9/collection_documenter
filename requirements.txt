@@ -5,4 +5,4 @@ streamlit-js-eval==0.1.7
 google-auth==2.40.1
 requests==2.32.4
 azure-storage-blob==12.17.0
-openai-whisper==20250625
+reportlab==4.4.3
