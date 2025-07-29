@@ -139,26 +139,6 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
 
     setup_page(collection_name=collection_name)
 
-    # Usage in your Streamlit app (e.g. at bottom of run_collection):
-    pdf_buf = generate_collection_pdf(
-        collection_name=collection_name,
-        blob_service=blob_service,   # pass in your Azure blob client
-        sas_hours=1
-    )
-
-    st.write("---")
-
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{collection_name}_{today_str}.pdf"
-
-    # now render the button inside that div
-    st.download_button(
-        label="📄 Download Collection PDF",
-        data=pdf_buf,
-        file_name=filename,
-        mime="application/pdf"
-    )
-
     all_tags, sel_tags = tag_filter_widget(
         collection_name,
         "main_tags_list",
@@ -194,5 +174,25 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
         st.write("---")
         with st.expander("Click here to view session details:", expanded=False):
             st.write(st.session_state)
+
+    # Usage in your Streamlit app (e.g. at bottom of run_collection):
+    pdf_buf = generate_collection_pdf(
+        collection_name=collection_name,
+        blob_service=blob_service,   # pass in your Azure blob client
+        sas_hours=1
+    )
+
+    st.write("---")
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{collection_name}_{today_str}.pdf"
+
+    # now render the button inside that div
+    st.download_button(
+        label="📄 Download Collection PDF",
+        data=pdf_buf,
+        file_name=filename,
+        mime="application/pdf"
+    )
 
     st.image("assets/color_banner.jpeg", use_container_width=True)

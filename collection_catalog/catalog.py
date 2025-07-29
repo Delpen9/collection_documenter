@@ -146,4 +146,13 @@ def catalog(user_email):
             else:
                 st.warning("Please enter a name before adding.")
 
+    _, col2, _ = st.columns([1, 4, 1])
+    with col2:
+        st.write("---")
+
+    st.markdown(
+        "<h3 style='text-align: center;'>Item Viewer</h3>",
+        unsafe_allow_html=True,
+    )
+
     st.image("assets/color_banner.jpeg", use_container_width=True)
