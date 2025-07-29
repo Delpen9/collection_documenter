@@ -62,11 +62,12 @@ def setup_page(collection_name: str):
             transition: background .3s, color .3s, box-shadow .3s;
         }}
         </style>
-
-        <div class="banner-container">
-        <h1 style="margin: 0; font-size: 2.2rem;">{collection_name}</h1>
-        </div>
         """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"<h3 style='text-align: center;'>{collection_name}</h3>",
         unsafe_allow_html=True,
     )
 
