@@ -100,7 +100,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                     tabs = st.tabs(["Upload", "Camera"])
                     with tabs[0]:
                         upload = st.file_uploader(
-                            "",
+                            f"Upload {label.title()} Photo",
                             type=["png","jpg","jpeg"],
                             key=f"DO_NOT_PERSIST_file_uploader_{label}_{item_id}"
                         )
