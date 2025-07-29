@@ -121,32 +121,15 @@ def render_Item(collection_name, item_index, item_id, allow_delete, model, tag_o
                             remove_image(collection_name, item_id, label, blob_service)
 
             with c3:
-                audio_data = audiorecorder(key=f"DO_NOT_PERSIST_audio_recorder_{item_id}")
-                if audio_data:
-                    st.audio(audio_data.export().read(), format="audio/wav")
-
-                if st.button("📝 Transcribe", key=f"DO_NOT_PERSIST_transcribe_{item_id}"):
-                    buf = io.BytesIO(audio_data.export().read())
-                    data, sr = sf.read(buf)
-
-                    if data.ndim > 1:
-                        data = data.mean(axis=1)
-
-                    if sr != 16000:
-                        data = librosa.resample(data, orig_sr=sr, target_sr=16000)
-
-                    text = model.transcribe(data.astype("float32"), fp16=False)["text"]
-                    st.session_state[item_id][f"transcript"] = text
-
                 # Use unique key for text_area to avoid duplicates
                 text_area = st.text_area(
-                    "Transcription",
-                    value=st.session_state[item_id].get(f"transcript", ""),
+                    "Take Notes",
+                    value=st.session_state[item_id].get(f"notes", ""),
                     height=150,
                     key=f"DO_NOT_PERSIST_text_area_{item_id}"
                 )
 
-                st.session_state[item_id][f"transcript"] = text_area
+                st.session_state[item_id][f"notes"] = text_area
 
             # Initialize tag state and render widget
             tag_key = "tag_selections"
