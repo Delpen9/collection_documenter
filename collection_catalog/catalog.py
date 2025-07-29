@@ -104,7 +104,7 @@ def catalog(user_email):
     st.write("")
 
     st.markdown(
-        "<h3 style='text-align: center;'>Manage your Collection Catalog</h3>",
+        "<h4 style='text-align: center;'>Manage</h4>",
         unsafe_allow_html=True,
     )
 
