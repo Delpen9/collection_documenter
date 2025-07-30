@@ -135,6 +135,7 @@ def tag_filter_widget(collection_name, list_key):
 
 # --- Main ---
 def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
+    flush_session_state()
     load_state(collection_name, user_email, blob_service)
 
     setup_page(collection_name=collection_name)

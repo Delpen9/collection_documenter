@@ -28,7 +28,10 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 # --- Persistence Helpers ---
 from persistence import *
 
-def retrieve_all_user_collections(user_email: str, blob_service: BlobServiceClient) -> list[str]:
+# --- Item Viewer Helpers ---
+from collection_catalog.item_view import item_view_across_collections
+
+def retrieve_all_user_collectionss(user_email: str, blob_service: BlobServiceClient) -> list[str]:
     # get a ContainerClient
     container_client = blob_service.get_container_client(STATE_CONTAINER)
     # list only the blobs under your user’s “folder”
@@ -43,7 +46,7 @@ def retrieve_all_user_collections(user_email: str, blob_service: BlobServiceClie
 def create_new_collection(user_email: str, name: str):
     """
     Hook this up to your blob logic – e.g. upload an empty JSON
-    at f"{user_email}/{name}.json" so it shows up in retrieve_all_user_collections.
+    at f"{user_email}/{name}.json" so it shows up in retrieve_all_user_collectionss.
     """
     container_client = blob_service.get_container_client(STATE_CONTAINER)
     blob_name = f"{user_email}/{name}.json"
@@ -64,6 +67,8 @@ def delete_collection(user_email: str, name: str):
         pass
 
 def catalog(user_email):
+    flush_session_state()
+
     st.image("assets/color_banner.jpeg", use_container_width=True)
 
     st.markdown(
@@ -71,7 +76,7 @@ def catalog(user_email):
         unsafe_allow_html=True,
     )
 
-    user_collection = retrieve_all_user_collections(user_email, blob_service)
+    user_collections = retrieve_all_user_collectionss(user_email, blob_service)
 
     st.markdown(
         """
@@ -94,7 +99,7 @@ def catalog(user_email):
         unsafe_allow_html=True,
     )
 
-    for collection in user_collection:
+    for collection in user_collections:
         _, col_sel, _ = st.columns([1, 4, 1], gap="small")
 
         with col_sel:
@@ -128,7 +133,7 @@ def catalog(user_email):
             key=f"delete-txt-{collection}",
         )
 
-        if delete_collection_text in user_collection:
+        if delete_collection_text in user_collections:
             confirm_delete(user_email, delete_collection_text)
         elif delete_collection_text != "":
             st.warning("This collection does not exist.")
@@ -151,8 +156,12 @@ def catalog(user_email):
         st.write("---")
 
     st.markdown(
-        "<h3 style='text-align: center;'>Item Viewer</h3>",
+        "<h4 style='text-align: center;'>Item Viewer</h4>",
         unsafe_allow_html=True,
     )
+
+    _, col2, _ = st.columns([1, 4, 1])
+    with col2:
+        item_view_across_collections(user_collections, user_email)
 
     st.image("assets/color_banner.jpeg", use_container_width=True)
