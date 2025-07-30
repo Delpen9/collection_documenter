@@ -5,6 +5,9 @@ from collection_catalog.catalog import catalog
 
 from login import login
 
+# --- Persistence Helpers ---
+from persistence import *
+
 if __name__ == "__main__":
     st.set_page_config(
         page_title="Collection Documenter",
@@ -20,9 +23,15 @@ if __name__ == "__main__":
     if "selected_collection" not in st.session_state:
         st.session_state.selected_collection = None
 
-    if not st.session_state.selected_collection:
-        st.info(f"Welcome user {user_email}!")
-        catalog(user_email)
+    with temp_session_state():
+        if not st.session_state.selected_collection:
+            st.info(f"Welcome user {user_email}!")
+            catalog(user_email)
 
-    if st.session_state.selected_collection:
-        run_collection(collection_name=st.session_state.selected_collection, user_email=user_email, DEBUG_MODE=DEBUG_MODE)
+    with temp_session_state():
+        if st.session_state.selected_collection:
+            run_collection(
+                collection_name=st.session_state.selected_collection,
+                user_email=user_email,
+                DEBUG_MODE=DEBUG_MODE
+            )

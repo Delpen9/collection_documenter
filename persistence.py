@@ -5,6 +5,7 @@ import json
 import time
 import streamlit as st
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 
 def import_blob_libs():
     from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -21,9 +22,40 @@ BlobServiceClient, generate_blob_sas, BlobSasPermissions = import_blob_libs()
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 
 ################################
+## CONTEXT MANAGER FOR MANAGING SESSION_STATE
+################################
+@contextmanager
+def temp_session_state():
+    # 1) snapshot which keys exist before
+    original_keys = set(st.session_state.keys())
+    try:
+        yield
+    finally:
+        # 2) delete anything new that showed up
+        for k in set(st.session_state.keys()) - original_keys:
+            del st.session_state[k]
+
+################################
+## STATE FLUSHING
+################################
+def flush_session_state(preserve_keys=None):
+    """
+    Deletes every key in session_state except those in preserve_keys,
+    then reruns the app.
+    """
+    if preserve_keys is None:
+        preserve_keys = ["user", "token", "oauth_state"]
+
+    # snapshot to avoid mutating during iteration
+    all_keys = list(st.session_state.keys())
+    for k in all_keys:
+        if k not in preserve_keys:
+            del st.session_state[k]
+
+################################
 ## READ FUNCTIONALITY
 ################################
-def load_state(collection_name, user_email, blob_service):
+def load_state(collection_name, user_email, blob_service, handle_race_condition=True):
     try:
         blob_name = f"{user_email}/{collection_name}.json"
         blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
@@ -32,13 +64,14 @@ def load_state(collection_name, user_email, blob_service):
         for k, v in saved.items():
             st.session_state[k] = v
 
-        # there is a weird race condition where
-        # when items are deleted, their session_state value remains with {}
-        # while no longer being in the "Items" list
-        # this is a bandaid to fix that situation
-        for key_val in st.session_state.keys():
-            if key_val.startswith("item_id") and key_val not in st.session_state.Items:
-                del st.session_state[key_val]
+        if handle_race_condition:
+            # there is a weird race condition where
+            # when items are deleted, their session_state value remains with {}
+            # while no longer being in the "Items" list
+            # this is a bandaid to fix that situation
+            for key_val in st.session_state.keys():
+                if key_val.startswith("item_id") and key_val not in st.session_state.Items:
+                    del st.session_state[key_val]
 
     except Exception:
         pass
