@@ -194,4 +194,6 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
         with st.expander("Click here to view session details:", expanded=False):
             st.write(st.session_state)
 
+    st.session_state.selected_collection = collection_name
+
     st.image("assets/color_banner.jpeg", use_container_width=True)
