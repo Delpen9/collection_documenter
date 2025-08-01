@@ -1,5 +1,6 @@
 import streamlit as st
 from contextlib import contextmanager
+from azure.core.exceptions import ResourceNotFoundError
 
 def import_blob_libs():
     from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -24,7 +25,7 @@ def display_item_details(collection, item_id):
         st.session_state[item_id][title_key],
         expanded=False
     ):
-        st.write(f"Collection Name: {collection}")
+        st.info(f"Collection Name: {collection}")
         c1, c2, c3 = st.columns([1, 1, 1])
 
         # Front & back images
