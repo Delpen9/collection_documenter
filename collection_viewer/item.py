@@ -82,7 +82,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
     st.session_state[item_id][title_key] = title_input
 
     with st.container():
-        with st.expander("Details", expanded=True):
+        with st.expander("Details", expanded=False):
             c1, c2, c3 = st.columns([1,1,1])
             for col, label in zip((c1, c2), ("front", "back")):
                 with col:
