@@ -33,6 +33,7 @@ def generate_item_id(length: int=10):
     return "item_id_" + ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def add_Item(collection_name: str, item_index: int, user_email: str):
+    load_state(collection_name, user_email, blob_service)
     new_item_id = generate_item_id()
     st.session_state.Items.insert(item_index + 1, new_item_id)
     st.session_state[new_item_id] = {}
@@ -40,6 +41,7 @@ def add_Item(collection_name: str, item_index: int, user_email: str):
 
 @st.dialog("Confirm delete", width="small")
 def confirm_delete(collection_name, item_index, item_id, user_email):
+    load_state(collection_name, user_email, blob_service)
     st.write(f"Delete item **#{item_id}**?")
     yes, no = st.columns(2)
     with yes:
@@ -154,7 +156,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
             )
 
             st.session_state[item_id][tag_key] = tag_selections_for_item
-            
+        
         if not selected_filters:
             st.button(
                 "➕ Add Item Below",
