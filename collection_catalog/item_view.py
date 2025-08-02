@@ -1,4 +1,6 @@
 import streamlit as st
+from collections import OrderedDict
+from typing import Dict, List, Union
 from contextlib import contextmanager
 from azure.core.exceptions import ResourceNotFoundError
 
@@ -19,16 +21,33 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 # --- Persistence Helpers ---
 from persistence import *
 
+def format_accounting(value: float) -> str:
+    if value < 0:
+        return f"(${abs(value):,.2f})"
+
+    return f"${value:,.2f}"
+
+def sort_items_by_price(
+    sorting_dict: Dict[str, List[Union[str, float]]],
+    ascending: bool = True,
+) -> List[str]:
+    """
+    Return list of item_ids sorted by price_estimate (index 1) ascending or descending.
+    """
+    return sorted(
+        sorting_dict.keys(),
+        key=lambda k: float(sorting_dict[k][1]) if sorting_dict[k][1] is not None else float("inf"),
+        reverse=not ascending,
+    )
+
 def display_item_details(collection, item_id, tag_selections_for_item):
+    price_estimate = st.session_state[item_id].get('price_estimate', '0.00')
     title_key = "item_title"
     with st.expander(
-        st.session_state[item_id][title_key],
+        label=f"**{st.session_state[item_id][title_key]}** ({format_accounting(float(price_estimate))})",
         expanded=False
     ):
-        st.info(f"Collection Name: {collection}")
-        if st.button(f"Go to Collection: '{collection}'", key=f"go_to_collection_{collection}_{item_id}"):
-            st.session_state.selected_collection = collection
-            st.rerun()
+        st.metric(label="Your Price Estimate", value=format_accounting(float(price_estimate)))
 
         c1, c2, c3 = st.columns([1, 1, 1])
 
@@ -86,6 +105,11 @@ def display_item_details(collection, item_id, tag_selections_for_item):
             st.write("")
 
 def item_view_across_collections(collections: list[str], user_email: str):
+    sorting_option = st.selectbox("Sort by", options=[
+        "No Sorting",
+        "Estimated Item Value (Ascending)",
+        "Estimated Item Value (Descending)"
+    ])
     keyword_filter = st.text_input("Keyword filter", placeholder="Type & press Enter")
 
     if keyword_filter != "":
@@ -117,9 +141,16 @@ def item_view_across_collections(collections: list[str], user_email: str):
 
     total = 0
     shown = 0
+    total_of_price_estimates = 0.00
 
     # this O(n) routine actually displays every item
     for collection in collections:
+        if sorting_option == "No Sorting":
+            st.info(f"Collection Name: {collection}")
+            if st.button(f"Go to Collection: '{collection}'", key=f"go_to_collection_{collection}"):
+                st.session_state.selected_collection = collection
+                st.rerun()
+
         blob_name = f"{user_email}/{collection}.json"
         blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
         raw = blob.download_blob().readall()
@@ -129,17 +160,55 @@ def item_view_across_collections(collections: list[str], user_email: str):
         for k, v in saved.items():
             st.session_state[k] = v
 
+        sorting_dict = {}
         for item_id in st.session_state.Items:
             total += 1
             tag_selections_for_item = st.session_state[item_id].get("tag_selections", [])
             item_title = st.session_state[item_id].get("item_title", "")
+            price_estimate = float(st.session_state[item_id].get("price_estimate", "0.00"))
 
             # does this item pass the filters?
             tag_conditions = (not sel_tags) or set(tag_selections_for_item).intersection(sel_tags)
             title_conditions = keyword_filter.lower() in item_title.lower()
             if tag_conditions and title_conditions:
                 shown += 1
-                display_item_details(collection, item_id, tag_selections_for_item)
+
+                # if sorting is enabled, we want to skip rendering the item at 
+                # this point in time
+                if sorting_option == "No Sorting":
+                    display_item_details(collection, item_id, tag_selections_for_item)
+
+                total_of_price_estimates += price_estimate
+
+                # if sorting is turned off, we want to create this
+                # dictionary such that we can sort the items and have the
+                # details we need to render the item
+                if sorting_option != "No Sorting":
+                    sorting_dict[item_id] = (collection, price_estimate)
+
+    ##############################
+    ## if sorting is being used
+    ##############################
+    sorted_items_list = None
+    if sorting_option != "Estimated Item Value (Ascending)":
+        sorted_items_list = sort_items_by_price(sorting_dict, ascending=True)
+
+    elif sorting_option != "Estimated Item Value (Descending)":
+        sorted_items_list = sort_items_by_price(sorting_dict, ascending=False)
+
+    if sorted_items_list:
+        for item_id in sorted_items_list:
+            collection, _ = sorting_dict[item_id]
+            tag_selections_for_item = st.session_state[item_id].get("tag_selections", [])
+            display_item_details(collection, item_id, tag_selections_for_item)
+
+    ##############################
+
+    st.write("")
+
+    formatted_total = format_accounting(total_of_price_estimates)
+
+    st.metric(label="Total Estimate", value=formatted_total)
 
     hidden = total - shown
     st.write("---")
