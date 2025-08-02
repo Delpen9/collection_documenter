@@ -29,7 +29,7 @@ def display_item_details(collection, item_id, tag_selections_for_item):
     price_estimate = st.session_state[item_id].get('price_estimate', '0.00')
     title_key = "item_title"
     with st.expander(
-        st.session_state[item_id][title_key],
+        label=f"**{st.session_state[item_id][title_key]}** ({format_accounting(float(price_estimate))})",
         expanded=False
     ):
         st.metric(label="Your Price Estimate", value=format_accounting(float(price_estimate)))

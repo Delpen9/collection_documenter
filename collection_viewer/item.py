@@ -120,12 +120,12 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
             try:
                 num = float(cleaned)
                 formatted = format_accounting(num)
-                st.success(f"Your price estimate: {formatted}")
+                st.metric(label="Your Price Estimate", value=formatted)
                 st.session_state[item_id][price_key] = cleaned  # keep the clean raw value if desired
             except ValueError:
                 st.error("Price must be a valid number.")
 
-            st.write("---")
+            st.write("")
 
             c1, c2, c3 = st.columns([1,1,1])
             for col, label in zip((c1, c2), ("front", "back")):
