@@ -131,7 +131,13 @@ def tag_filter_widget(collection_name, list_key):
         options=st.session_state[list_key],
         default=[],
     )
-    return st.session_state[list_key], selected
+
+    keyword_filter = st.text_input("Keyword filter", placeholder="Type & press Enter")
+
+    if keyword_filter != "":
+        st.info(f"Keyword filtering for '{keyword_filter}' is being applied.")
+
+    return st.session_state[list_key], selected, keyword_filter
 
 # --- Main ---
 def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
@@ -140,7 +146,7 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
 
     setup_page(collection_name=collection_name)
 
-    all_tags, sel_tags = tag_filter_widget(
+    all_tags, sel_tags, keyword_filter = tag_filter_widget(
         collection_name,
         "main_tags_list",
     )
@@ -158,9 +164,12 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
 
     for item_index, item_id in enumerate(st.session_state.Items):
         item_tags = st.session_state.get(item_id, {}).get("tag_selections", [])
+        item_title = st.session_state[item_id].get("item_title", "")
 
-        # does this item pass the filter?
-        if (not sel_tags) or set(item_tags).intersection(sel_tags):
+        # does this item pass the filters?
+        tag_conditions = (not sel_tags) or set(item_tags).intersection(sel_tags)
+        title_conditions = keyword_filter.lower() in item_title.lower()
+        if tag_conditions and title_conditions:
             shown += 1
             st.markdown("---")
             render_Item(collection_name, item_index, item_id, allow_del, all_tags, sel_tags)

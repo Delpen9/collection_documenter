@@ -113,7 +113,7 @@ def item_view_across_collections(collections: list[str], user_email: str):
         default=[],
     )
 
-    st.write("")
+    st.write("---")
 
     total = 0
     shown = 0
