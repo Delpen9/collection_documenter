@@ -26,6 +26,10 @@ def display_item_details(collection, item_id):
         expanded=False
     ):
         st.info(f"Collection Name: {collection}")
+        if st.button(f"Go to Collection: '{collection}'", key=f"go_to_collection_{collection}_{item_id}"):
+            st.session_state.selected_collection = collection
+            st.rerun()
+
         c1, c2, c3 = st.columns([1, 1, 1])
 
         # Front & back images
