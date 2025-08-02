@@ -162,6 +162,7 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
     total = len(st.session_state.Items)
     shown = 0
 
+    total_of_price_estimates = 0.00
     for item_index, item_id in enumerate(st.session_state.Items):
         item_tags = st.session_state.get(item_id, {}).get("tag_selections", [])
         item_title = st.session_state[item_id].get("item_title", "")
@@ -172,7 +173,20 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
         if tag_conditions and title_conditions:
             shown += 1
             st.markdown("---")
-            render_Item(collection_name, item_index, item_id, allow_del, all_tags, sel_tags)
+            item_price = render_Item(collection_name, item_index, item_id, allow_del, all_tags, sel_tags)
+            total_of_price_estimates += item_price
+
+    st.write("")
+
+    def format_accounting(value: float) -> str:
+        if value < 0:
+            return f"(${abs(value):,.2f})"
+
+        return f"${value:,.2f}"
+
+    formatted_total = format_accounting(total_of_price_estimates)
+
+    st.metric(label="Total Estimate", value=formatted_total)
 
     hidden = total - shown
     st.write("---")

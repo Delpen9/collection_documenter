@@ -212,3 +212,5 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
         if allow_delete:
             if st.button("🗑️ Delete Item", key=f"DO_NOT_PERSIST_delete_item_{item_id}"):
                 confirm_delete(collection_name, item_index, item_id, st.session_state.user["email"])
+
+        return float(st.session_state[item_id][price_key])
