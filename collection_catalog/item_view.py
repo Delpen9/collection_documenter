@@ -86,6 +86,11 @@ def display_item_details(collection, item_id, tag_selections_for_item):
             st.write("")
 
 def item_view_across_collections(collections: list[str], user_email: str):
+    keyword_filter = st.text_input("Keyword filter", placeholder="Type & press Enter")
+
+    if keyword_filter != "":
+        st.info(f"Keyword filtering for '{keyword_filter}' is being applied.")
+
     # this O(n) routine gets all tag options to be displayed in the filter
     all_tags_list = []
     for collection in collections:
@@ -127,9 +132,12 @@ def item_view_across_collections(collections: list[str], user_email: str):
         for item_id in st.session_state.Items:
             total += 1
             tag_selections_for_item = st.session_state[item_id].get("tag_selections", [])
+            item_title = st.session_state[item_id].get("item_title", "")
 
-            # does this item pass the filter?
-            if (not sel_tags) or set(tag_selections_for_item).intersection(sel_tags):
+            # does this item pass the filters?
+            tag_conditions = (not sel_tags) or set(tag_selections_for_item).intersection(sel_tags)
+            title_conditions = keyword_filter.lower() in item_title.lower()
+            if tag_conditions and title_conditions:
                 shown += 1
                 display_item_details(collection, item_id, tag_selections_for_item)
 
