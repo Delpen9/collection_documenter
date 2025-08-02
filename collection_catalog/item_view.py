@@ -19,7 +19,7 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 # --- Persistence Helpers ---
 from persistence import *
 
-def display_item_details(collection, item_id):
+def display_item_details(collection, item_id, tag_selections_for_item):
     title_key = "item_title"
     with st.expander(
         st.session_state[item_id][title_key],
@@ -45,7 +45,75 @@ def display_item_details(collection, item_id):
             c3.write("**Notes:**")
             c3.write(notes)
 
+        def pills(tags, selected):
+            selected_set = set(selected or [])
+            # inject styling once
+            st.markdown(
+                """
+                <style>
+                .tag-pills span {
+                    display: inline-block;
+                    padding: 4px 10px;
+                    border-radius: 999px;
+                    font-size: 12px;
+                    margin-right: 4px;
+                    margin-bottom: 4px;
+                    border: 1px solid #1a73e8;
+                    font-weight: 500;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            html = (
+                "<div class='tag-pills'>"
+                + "".join(
+                    f"<span style=\"background:{'#1a73e8' if t in selected_set else '#e8f0fe'};"
+                    f"color:{'white' if t in selected_set else '#1a73e8'};"
+                    f"\">{t}</span>"
+                    for t in tags
+                )
+                + "</div>"
+            )
+            st.markdown(html, unsafe_allow_html=True)
+
+        if tag_selections_for_item:
+            st.write("---")
+            # show all tags as unselected pills (or pass them as selected if you want them highlighted)
+            pills(tag_selections_for_item, selected=[])
+            st.write("")
+            st.write("")
+
 def item_view_across_collections(collections: list[str], user_email: str):
+    # this O(n) routine gets all tag options to be displayed in the filter
+    all_tags_list = []
+    for collection in collections:
+        blob_name = f"{user_email}/{collection}.json"
+        blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
+        raw = blob.download_blob().readall()
+        saved = json.loads(raw)
+
+        flush_session_state()
+        for k, v in saved.items():
+            st.session_state[k] = v
+
+        main_tags_list = st.session_state.get("main_tags_list", [])
+        all_tags_list += main_tags_list
+
+    all_tags_list = list(set(all_tags_list))
+    sel_tags = st.multiselect(
+        "Filter by tags",
+        options=all_tags_list,
+        default=[],
+    )
+
+    st.write("")
+
+    total = 0
+    shown = 0
+
+    # this O(n) routine actually displays every item
     for collection in collections:
         blob_name = f"{user_email}/{collection}.json"
         blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
@@ -57,10 +125,20 @@ def item_view_across_collections(collections: list[str], user_email: str):
             st.session_state[k] = v
 
         for item_id in st.session_state.Items:
-            display_item_details(collection, item_id)
+            total += 1
+            tag_selections_for_item = st.session_state[item_id].get("tag_selections", [])
 
-        # flushing the state here prevents another catalog item
-        # from showing up, and setting 'selected_collection' to 'None'
-        # prevents a catalog from showing at the bottom of the page
-        flush_session_state()
-        st.session_state.selected_collection = None
+            # does this item pass the filter?
+            if (not sel_tags) or set(tag_selections_for_item).intersection(sel_tags):
+                shown += 1
+                display_item_details(collection, item_id, tag_selections_for_item)
+
+    hidden = total - shown
+    st.write("---")
+    st.info(f"{hidden} item{'s' if hidden!=1 else ''} hidden")
+
+    # flushing the state here prevents another catalog item
+    # from showing up, and setting 'selected_collection' to 'None'
+    # prevents a catalog from showing at the bottom of the page
+    flush_session_state()
+    st.session_state.selected_collection = None
