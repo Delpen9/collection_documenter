@@ -19,16 +19,20 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 # --- Persistence Helpers ---
 from persistence import *
 
+def format_accounting(value: float) -> str:
+    if value < 0:
+        return f"(${abs(value):,.2f})"
+
+    return f"${value:,.2f}"
+
 def display_item_details(collection, item_id, tag_selections_for_item):
+    price_estimate = st.session_state[item_id].get('price_estimate', '0.00')
     title_key = "item_title"
     with st.expander(
         st.session_state[item_id][title_key],
         expanded=False
     ):
-        st.info(f"Collection Name: {collection}")
-        if st.button(f"Go to Collection: '{collection}'", key=f"go_to_collection_{collection}_{item_id}"):
-            st.session_state.selected_collection = collection
-            st.rerun()
+        st.metric(label="Your Price Estimate", value=format_accounting(float(price_estimate)))
 
         c1, c2, c3 = st.columns([1, 1, 1])
 
@@ -85,6 +89,8 @@ def display_item_details(collection, item_id, tag_selections_for_item):
             st.write("")
             st.write("")
 
+    return float(price_estimate)
+
 def item_view_across_collections(collections: list[str], user_email: str):
     keyword_filter = st.text_input("Keyword filter", placeholder="Type & press Enter")
 
@@ -117,9 +123,15 @@ def item_view_across_collections(collections: list[str], user_email: str):
 
     total = 0
     shown = 0
+    total_of_price_estimates = 0.00
 
     # this O(n) routine actually displays every item
     for collection in collections:
+        st.info(f"Collection Name: {collection}")
+        if st.button(f"Go to Collection: '{collection}'", key=f"go_to_collection_{collection}"):
+            st.session_state.selected_collection = collection
+            st.rerun()
+
         blob_name = f"{user_email}/{collection}.json"
         blob = blob_service.get_blob_client(container=STATE_CONTAINER, blob=blob_name)
         raw = blob.download_blob().readall()
@@ -139,7 +151,14 @@ def item_view_across_collections(collections: list[str], user_email: str):
             title_conditions = keyword_filter.lower() in item_title.lower()
             if tag_conditions and title_conditions:
                 shown += 1
-                display_item_details(collection, item_id, tag_selections_for_item)
+                price_estimate = display_item_details(collection, item_id, tag_selections_for_item)
+                total_of_price_estimates += price_estimate
+
+    st.write("")
+
+    formatted_total = format_accounting(total_of_price_estimates)
+
+    st.metric(label="Total Estimate", value=formatted_total)
 
     hidden = total - shown
     st.write("---")
