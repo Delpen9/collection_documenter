@@ -83,6 +83,50 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
 
     with st.container():
         with st.expander("Details", expanded=False):
+            def sanitize_price(s: str) -> str:
+                # remove everything except digits and dots
+                filtered = re.sub(r"[^0-9.]", "", s)
+                if filtered.count(".") > 1:
+                    # keep first dot only
+                    parts = filtered.split(".")
+                    filtered = parts[0] + "." + "".join(parts[1:])
+
+                # limit to two decimal places
+                if "." in filtered:
+                    integer, frac = filtered.split(".", 1)
+                    frac = frac[:2]
+                    filtered = f"{integer}.{frac}"
+                return filtered or "0.00"
+
+            price_key = "price_estimate"
+            if price_key not in st.session_state[item_id]:
+                st.session_state[item_id][price_key] = "0.00"
+
+            raw_input = st.text_input(
+                "Insert a Price Estimate",
+                value=st.session_state[item_id][price_key],
+                key=f"DO_NOT_PERSIST_price_estimate_{item_id}"
+            )
+
+            # sanitize and validate
+            cleaned = sanitize_price(raw_input)
+
+            def format_accounting(value: float) -> str:
+                if value < 0:
+                    return f"(${abs(value):,.2f})"
+                return f"${value:,.2f}"
+
+            # after you’ve sanitized and converted:
+            try:
+                num = float(cleaned)
+                formatted = format_accounting(num)
+                st.success(f"Your price estimate: {formatted}")
+                st.session_state[item_id][price_key] = cleaned  # keep the clean raw value if desired
+            except ValueError:
+                st.error("Price must be a valid number.")
+
+            st.write("---")
+
             c1, c2, c3 = st.columns([1,1,1])
             for col, label in zip((c1, c2), ("front", "back")):
                 with col:
