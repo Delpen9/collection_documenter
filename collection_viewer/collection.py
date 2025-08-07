@@ -137,7 +137,11 @@ def tag_filter_widget(collection_name, list_key):
     if keyword_filter != "":
         st.info(f"Keyword filtering for '{keyword_filter}' is being applied.")
 
-    return st.session_state[list_key], selected, keyword_filter
+    ai_generation = st.selectbox("Use AI generation", options=[True, False])
+    if ai_generation:
+        st.warning("If AI generation is turned on, when you take a front image, the title, notes, and AI estimated price of the item will be auto-generated.")
+
+    return st.session_state[list_key], selected, keyword_filter, ai_generation
 
 # --- Main ---
 def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
@@ -146,7 +150,7 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
 
     setup_page(collection_name=collection_name)
 
-    all_tags, sel_tags, keyword_filter = tag_filter_widget(
+    all_tags, sel_tags, keyword_filter, ai_generation = tag_filter_widget(
         collection_name,
         "main_tags_list",
     )
@@ -173,7 +177,7 @@ def run_collection(collection_name: str, user_email, DEBUG_MODE: bool):
         if tag_conditions and title_conditions:
             shown += 1
             st.markdown("---")
-            item_price = render_Item(collection_name, item_index, item_id, allow_del, all_tags, sel_tags)
+            item_price = render_Item(collection_name, item_index, item_id, allow_del, all_tags, sel_tags, ai_generation)
             total_of_price_estimates += item_price
 
     st.write("")

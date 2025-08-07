@@ -67,7 +67,7 @@ def confirm_delete(collection_name, item_index, item_id, user_email):
             st.rerun()
 
 # --- Render Item ---
-def render_Item(collection_name, item_index, item_id, allow_delete, tag_options, selected_filters):
+def render_Item(collection_name, item_index, item_id, allow_delete, tag_options, selected_filters, ai_generation):
     # we really want every item to be a nested dictionary
     # in the session_state
     if item_id not in st.session_state:
@@ -154,7 +154,7 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                             key=f"DO_NOT_PERSIST_camera_{label}_{item_id}",
                         )
 
-                        if camera:
+                        if camera and label == "front" and ai_generation:
                             analysis = analyze_item(camera)
                             st.session_state[f"{label}_{item_id}_analysis"] = analysis
 
