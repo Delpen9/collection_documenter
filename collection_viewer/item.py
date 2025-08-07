@@ -135,7 +135,8 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
             st.write("")
 
             # this does nothing except trigger a rerun
-            st.button("Refresh Item", key=f"refresh_button_{item_id}")
+            st.button("Refresh Item", key=f"DO_NOT_PERSIST_refresh_button_{item_id}")
+            st.write("---")
 
             c1, c2, c3 = st.columns([1,1,1])
             for col, label in zip((c1, c2), ("front", "back")):
