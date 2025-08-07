@@ -4,6 +4,7 @@ import re
 import json
 import time
 import string
+import requests
 import secrets
 import streamlit as st
 from login import login
@@ -153,28 +154,6 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                             key=f"DO_NOT_PERSIST_camera_{label}_{item_id}",
                         )
 
-                        if ai_generation:
-                            # this does nothing except trigger a rerun
-                            if label == "front" and st.button("Update Item using AI", key=f"DO_NOT_PERSIST_refresh_button_{item_id}"):
-                                analysis = analyze_item(camera)
-                                st.session_state[f"{label}_{item_id}_analysis"] = analysis
-
-                                st.session_state[item_id][title_key] = st.session_state[
-                                    f"{label}_{item_id}_analysis"
-                                ].get("suggested_item_title", "")
-
-                                st.session_state[item_id]["notes"] = st.session_state[
-                                    f"{label}_{item_id}_analysis"
-                                ].get("item_notes", "")
-
-                                st.session_state[item_id]["ai_suggested_price"] = st.session_state[
-                                    f"{label}_{item_id}_analysis"
-                                ].get("ai_estimated_price", "")
-
-                                st.session_state[item_id]["last_5_sold_listings"] = st.session_state[
-                                    f"{label}_{item_id}_analysis"
-                                ].get("last_5_sold_listings", {})
-
                     img = upload or camera
                     image_key = f"image_{label}"
 
@@ -207,6 +186,36 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                 st.session_state[item_id][f"notes"] = text_area
 
                 st.write("---")
+
+            if ai_generation:
+                if st.button("Update Item using AI", key=f"DO_NOT_PERSIST_ai_button_{item_id}"):
+                    blob_name = st.session_state[item_id].get("image_front", "")
+
+                    if blob_name:
+                        image_bytes = requests.get(build_sas_url(blob_name, blob_service)).content
+
+                        analysis = analyze_item(image_bytes)
+                        st.session_state[f"{label}_{item_id}_analysis"] = analysis
+
+                        st.session_state[item_id][title_key] = st.session_state[
+                            f"{label}_{item_id}_analysis"
+                        ].get("suggested_item_title", "")
+
+                        st.session_state[item_id]["notes"] = st.session_state[
+                            f"{label}_{item_id}_analysis"
+                        ].get("item_notes", "")
+
+                        st.session_state[item_id]["ai_suggested_price"] = st.session_state[
+                            f"{label}_{item_id}_analysis"
+                        ].get("ai_estimated_price", "")
+
+                        st.session_state[item_id]["last_5_sold_listings"] = st.session_state[
+                            f"{label}_{item_id}_analysis"
+                        ].get("last_5_sold_listings", {})
+
+            # this does nothing except trigger a rerun
+            st.button("Refresh Item", key=f"DO_NOT_PERSIST_refresh_button_{item_id}")
+            st.write("---")
 
             # Initialize tag state and render widget
             tag_key = "tag_selections"
