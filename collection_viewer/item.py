@@ -27,6 +27,9 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 # --- Persistence Helpers ---
 from persistence import *
 
+# --- OpenAI Helpers ---
+from prompt_engineering.prompt import analyze_item
+
 # --- Item Handlers ---
 def generate_item_id(length: int=10):
     alphabet = string.ascii_letters + string.digits
@@ -141,10 +144,21 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                         )
 
                     with tabs[1]:
+                        def process_camera(camera, label, item_id):
+                            analysis = analyze_item(camera)
+                            st.session_state[f"{label}_{item_id}_analysis"] = analysis
+
+                        # camera returns "None" unless a picture is taken
                         camera = st.camera_input(
                             f"Snap {label.title()} Photo",
-                            key=f"DO_NOT_PERSIST_camera_{label}_{item_id}"
+                            key=f"DO_NOT_PERSIST_camera_{label}_{item_id}",
                         )
+
+                        if camera:
+                            process_camera(camera, label, item_id)
+
+                        if f"{label}_{item_id}_analysis" in st.session_state:
+                            st.write(st.session_state[f"{label}_{item_id}_analysis"])
 
                     img = upload or camera
                     image_key = f"image_{label}"

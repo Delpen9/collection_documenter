@@ -15,7 +15,7 @@ if __name__ == "__main__":
         initial_sidebar_state="expanded"
     )
 
-    DEBUG_MODE = False
+    DEBUG_MODE = True
 
     user_email = login()
 
