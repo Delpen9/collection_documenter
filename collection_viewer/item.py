@@ -27,6 +27,9 @@ blob_service = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
 # --- Persistence Helpers ---
 from persistence import *
 
+# --- OpenAI Helpers ---
+from prompt_engineering.prompt import analyze_item
+
 # --- Item Handlers ---
 def generate_item_id(length: int=10):
     alphabet = string.ascii_letters + string.digits
@@ -125,6 +128,10 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
             except ValueError:
                 st.error("Price must be a valid number.")
 
+            if st.session_state[item_id].get("ai_suggested_price", ""):
+                ai_suggested_price = st.session_state[item_id].get("ai_suggested_price", None)
+                st.metric(label="AI Price Estimate", value=ai_suggested_price)
+
             st.write("")
 
             c1, c2, c3 = st.columns([1,1,1])
@@ -141,10 +148,31 @@ def render_Item(collection_name, item_index, item_id, allow_delete, tag_options,
                         )
 
                     with tabs[1]:
+                        # camera returns "None" unless a picture is taken
                         camera = st.camera_input(
                             f"Snap {label.title()} Photo",
-                            key=f"DO_NOT_PERSIST_camera_{label}_{item_id}"
+                            key=f"DO_NOT_PERSIST_camera_{label}_{item_id}",
                         )
+
+                        if camera:
+                            analysis = analyze_item(camera)
+                            st.session_state[f"{label}_{item_id}_analysis"] = analysis
+
+                            st.session_state[item_id][title_key] = st.session_state[
+                                f"{label}_{item_id}_analysis"
+                            ].get("suggested_item_title", "")
+
+                            st.session_state[item_id]["notes"] = st.session_state[
+                                f"{label}_{item_id}_analysis"
+                            ].get("item_notes", "")
+
+                            st.session_state[item_id]["ai_suggested_price"] = st.session_state[
+                                f"{label}_{item_id}_analysis"
+                            ].get("ai_estimated_price", "")
+
+                            st.session_state[item_id]["last_5_sold_listings"] = st.session_state[
+                                f"{label}_{item_id}_analysis"
+                            ].get("last_5_sold_listings", {})
 
                     img = upload or camera
                     image_key = f"image_{label}"

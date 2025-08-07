@@ -6,3 +6,5 @@ google-auth==2.40.1
 requests==2.32.4
 azure-storage-blob==12.17.0
 reportlab==4.4.3
+openai==1.99.1
+beautifulsoup4==4.13.4
